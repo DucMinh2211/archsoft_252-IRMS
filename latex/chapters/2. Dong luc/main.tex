@@ -1,0 +1,47 @@
+\section{Phân tích các phong cách kiến trúc tiềm năng}
+
+Việc lựa chọn kiến trúc cho IRMS dựa trên sự so sánh giữa các phong cách kiến trúc phổ biến, xem xét mức độ đáp ứng đối với các đặc tính vận hành và cấu trúc của hệ thống nhà hàng.
+
+\subsection{Kiến trúc phân tầng (Layered Architecture)}
+Đây là phong cách đơn giản và phổ biến nhất. Tuy nhiên, nó thường dẫn đến cấu trúc "Big Ball of Mud" khi hệ thống mở rộng, khó scale từng phần và không hỗ trợ tốt việc phân tách theo domain nghiệp vụ.
+
+\subsection{Kiến trúc dựa trên dịch vụ (Service-Based Architecture)}
+Kiến trúc này tổ chức hệ thống thành các domain service độc lập (Order, Kitchen, Payment,...). Nó cung cấp sự cân bằng tốt giữa tính mô-đun (Modularity) và độ phức tạp. Việc sử dụng cơ sở dữ liệu dùng chung (shared database) giúp duy trì tính toàn vẹn ACID cho các giao dịch thanh toán và tồn kho.
+
+\subsection{Kiến trúc vi dịch vụ (Microservices Architecture)}
+Cung cấp mức độ decoupled cao nhất và khả năng scale vô hạn. Tuy nhiên, đối với quy mô một nhà hàng hoặc chuỗi nhà hàng vừa và nhỏ, chi phí hạ tầng và độ phức tạp trong việc quản lý dữ liệu phân tán (eventual consistency) là không cần thiết.
+
+\section{Lựa chọn kiến trúc cho hệ thống IRMS}
+
+\subsection{Kiến trúc được lựa chọn: Service-Based Architecture}
+Sau khi phân tích, nhóm quyết định lựa chọn \textbf{Service-Based Architecture} làm kiến trúc chủ đạo cho IRMS.
+
+\subsection{Lý do lựa chọn}
+\begin{enumerate}
+    \item \textbf{Phân vùng theo miền nghiệp vụ (Domain Partitioning)}: IRMS có các domain rõ ràng (Đặt món, Bếp, Thanh toán). Kiến trúc này cho phép tách biệt các domain này thành các service riêng biệt, dễ dàng quản lý và phát triển song song.
+    \item \textbf{Hỗ trợ giao dịch ACID}: Khác với Microservices, Service-Based cho phép sử dụng database tập trung hoặc phân vùng logic, giúp đảm bảo dữ liệu đơn hàng và thanh toán luôn chính xác tuyệt đối.
+    \item \textbf{Độ phức tạp và chi phí hợp lý}: Phù hợp với đội ngũ phát triển và hạ tầng triển khai tại nhà hàng, không yêu cầu các kỹ thuật điều phối (orchestration) quá phức tạp.
+    \item \textbf{Khả năng chịu lỗi (Fault Tolerance)}: Lỗi ở một service (như Reporting) sẽ không làm gián đoạn các hoạt động cốt lõi khác (Ordering, Kitchen).
+\end{enumerate}
+
+\section{Bảng so sánh tổng hợp}
+
+Bảng \ref{tab:arch_comparison} tóm tắt sự đánh giá giữa các phong cách kiến trúc dựa trên yêu cầu của IRMS.
+
+\begin{table}[H]
+\centering
+\caption{So sánh các phong cách kiến trúc cho IRMS}
+\label{tab:arch_comparison}
+\begin{tabularx}{\textwidth}{|l|c|c|c|c|}
+\hline
+\textbf{Tiêu chí} & \textbf{Layered} & \textbf{Service-Based} & \textbf{Microservices} & \textbf{Event-Driven} \\ \hline
+Modularity & Thấp & Cao & Rất cao & Cao \\ \hline
+Scalability & Thấp & Trung bình & Rất cao & Rất cao \\ \hline
+Fault Tolerance & Thấp & Cao & Rất cao & Trung bình \\ \hline
+ACID Support & Rất tốt & Rất tốt & Thấp & Thấp \\ \hline
+Simplicity & Rất tốt & Tốt & Thấp & Thấp \\ \hline
+\end{tabularx}
+\end{table}
+
+\section{Kết chương}
+Việc lựa chọn Service-Based Architecture giúp IRMS đạt được sự cân bằng tối ưu giữa tính linh hoạt trong phát triển và sự ổn định trong vận hành. Đây là cơ sở để tiến hành thiết kế chi tiết các thành phần trong hệ thống ở chương tiếp theo.

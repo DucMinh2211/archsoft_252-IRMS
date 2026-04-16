@@ -1,0 +1,645 @@
+\documentclass[12pt, a4paper]{report}
+\usepackage{ifxetex}
+\ifxetex
+    \usepackage{fontspec}
+    \setmainfont{Times New Roman}
+\else
+    \usepackage{vntex}
+    \usepackage[utf8]{inputenc}
+\fi
+\usepackage{nomencl,etoolbox,ragged2e,siunitx}
+\usepackage{indentfirst, caption}
+
+\usepackage{subcaption}
+\usepackage[final]{graphicx}
+\usepackage[unicode]{hyperref}
+\hypersetup{
+    urlcolor=blue,
+    linkcolor=black,
+    citecolor=blue,
+    colorlinks=true
+} 
+% \usepackage[authoryear]{natbib}
+\usepackage[acronym]{glossaries}
+
+% table vertical
+\usepackage{lscape}
+
+
+% \usepackage{enumitem}
+
+% \usepackage[sorting=none]{biblatex}
+
+% \DefineBibliographyStrings{english}{%
+%   urlseen = {truy cập lần cuối:},
+% }
+
+% \DeclareFieldFormat{urldate}{\mkbibparens{\bibstring{urlseen}\space#1}}
+
+
+\newcommand{\DimensUnits}[2]{\hspace*{\fill}\makebox[8em][l]{#1}%
+\makebox[4em][l]{#2}\ignorespaces}
+\newcommand{\insertnomheaders}{\item[\bfseries Hàm]%
+\textbf{Chức năng}}
+\renewcommand\nomgroup[1]{%
+  \item[\Large\bfseries
+  \ifstrequal{#1}{B}{\uline{Base}}{%
+  \ifstrequal{#1}{D}{\uline{Dplyr}}{%
+  \ifstrequal{#1}{G}{\uline{Ggplot2}}{%
+  \ifstrequal{#1}{M}{\uline{Moments}}{% 
+  \ifstrequal{#1}{S}{\uline{Stats}}{%
+  \ifstrequal{#1}{U}{\uline{Utils}}{%
+  \ifstrequal{#1}{V}{\uline{VennDiagram}}{}}}}}}}]
+  \insertnomheaders
+  }
+  
+\renewcommand*{\nompreamble}{\markboth{\nomname}{\nomname}}
+\renewcommand{\nomname}{Danh sách các hàm R dùng trong bài}
+\newcommand{\nomdescr}[1]{\parbox[t]{4cm}{\RaggedRight #1}}
+\newcommand{\nomwithdim}[5]{\nomenclature[#1]{#2}%
+{\nomdescr{#3}\DimensUnits{#4}{#5}}}
+
+% \renewcommand{\acronymname}{Danh mục viết tắt}
+\makenomenclature
+%\usepackage[francais]{babel}
+\usepackage{a4wide,amssymb,epsfig,latexsym,array,float,hhline,fancyhdr}
+\usepackage[normalem]{ulem}
+%\usepackage{soul}
+
+\usepackage[makeroom]{cancel}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{multicol,longtable,amscd}
+\usepackage{diagbox}%Make diagonal lines in tables
+\usepackage[table,xcdraw,dvipsnames]{xcolor}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{pgf-pie}
+\usepackage{rotating}
+\usepackage{alltt}
+\usepackage[framemethod=tikz]{mdframed}% For highlighting paragraph backgrounds
+\usepackage{caption,subcaption}
+\usepackage{tablefootnote}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+% \usepackage{pdflscape}
+
+\usepackage{lastpage}
+\usepackage{enumitem}
+\usepackage{color}
+\usepackage{graphicx}							% Standard graphics package
+\usepackage{array}
+\usepackage{tabularx, caption}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{rotating}
+\usepackage{graphics}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{epsfig}
+\usepackage{tikz}
+\usetikzlibrary{arrows,backgrounds,shapes.geometric,shapes.misc,positioning,fit,calc,decorations.pathreplacing}
+
+% === TIKZ BACKGROUND LAYER DECLARATION ===
+\pgfdeclarelayer{background}
+\pgfsetlayers{background,main}
+
+% === TIKZ PROFESSIONAL COLORS ===
+\definecolor{primaryblue}{RGB}{41, 128, 185}
+\definecolor{secondarygreen}{RGB}{39, 174, 96}
+\definecolor{accentorange}{RGB}{230, 126, 34}
+\definecolor{lightgray}{RGB}{236, 240, 241}
+\definecolor{darkgray}{RGB}{52, 73, 94}
+\definecolor{lightblue}{RGB}{214, 234, 248}
+\definecolor{lightgreen}{RGB}{212, 239, 223}
+\definecolor{lightorange}{RGB}{250, 229, 211}
+
+% === TIKZ NODE STYLES ===
+\tikzset{
+    % Service/Component boxes
+    service/.style={
+        rectangle, rounded corners=3pt,
+        draw=primaryblue, fill=lightblue,
+        minimum width=2.2cm, minimum height=0.8cm,
+        font=\small\sffamily, align=center
+    },
+    % Database nodes
+    database/.style={
+        cylinder, shape border rotate=90,
+        draw=secondarygreen, fill=lightgreen,
+        minimum width=1.5cm, minimum height=1cm,
+        font=\small\sffamily, aspect=0.3
+    },
+    % Process/Pipeline nodes
+    process/.style={
+        rectangle, rounded corners=3pt,
+        draw=accentorange, fill=lightorange,
+        minimum width=2cm, minimum height=0.8cm,
+        font=\small\sffamily, align=center
+    },
+    % Layer/Group boxes
+    layer/.style={
+        rectangle, rounded corners=5pt,
+        draw=#1, fill=#1!10, thick,
+        inner sep=10pt
+    },
+    % Decision diamond
+    decision/.style={
+        diamond, draw=accentorange, fill=lightorange,
+        minimum width=2cm, minimum height=1.5cm,
+        font=\small\sffamily, align=center, aspect=2
+    },
+    % Arrow styles
+    arrow/.style={->, >=stealth, thick, draw=darkgray},
+    dashedarrow/.style={->, >=stealth, thick, dashed, draw=darkgray},
+    % Graph node (for Neo4j)
+    graphnode/.style={
+        circle, draw=#1, fill=#1!20,
+        minimum size=1.2cm, font=\small\sffamily
+    }
+}
+
+\usepackage{subfiles}
+\usepackage{import}
+%%%%% CROSSREF BIB
+\def\biblio{\bibliographystyle{amsalpha}\bibliography{bibgraf}} 
+
+%\usepackage{pstcol} 								% PSTricks with the standard color package
+
+\AtBeginDocument{\addtocontents{toc}{\protect\thispagestyle{empty}}} 
+
+\AtBeginDocument{%
+  \renewcommand\lstlistlistingname{Danh sách lệnh}
+  \renewcommand\lstlistingname{Mã lệnh}
+}
+
+
+\usepackage[normalem]{ulem}
+\patchcmd{\chapter}{plain}{empty}{}{}
+\patchcmd{\part}{plain}{empty}{}{}
+\newtheorem{theorem}{{\bf Định lý}}
+\newtheorem{property}{{\bf Tính chất}}
+\newtheorem{proposition}{{\bf Mệnh đề}}
+\newtheorem{corollary}[proposition]{{\bf Hệ quả}}
+\newtheorem{lemma}[proposition]{{\bf Bổ đề}}
+\theoremstyle{definition}
+\newtheorem{exer}{Bài toán}
+
+\def\thesislayout{	% A4: 210 × 297
+	\geometry{
+		a4paper,
+		left=25.4mm,
+		right=25.4mm,
+		top=25.4mm,
+		bottom=25.4mm
+	}
+}
+\thesislayout
+
+\usepackage{fancyvrb}
+\setlength{\headheight}{40pt}
+\pagestyle{fancy}
+\fancyhead{} % clear all header fields
+\fancyhead[L]{
+ \begin{tabular}{rl}
+    \begin{picture}(10,0)(0,8)
+    \includegraphics[width=8mm, height=8mm]{images/logoBK.jpg}
+    %\put(0,-8){\epsfig{width=10mm,figure=hcmut.eps}}
+   \end{picture}&
+	%\includegraphics[width=8mm, height=8mm]{hcmut.png} & %
+	\begin{tabular}{l}
+		Đại học Quốc gia TP.HCM - Trường Đại Học Bách Khoa\\
+		Khoa Khoa học và Kỹ thuật Máy tính
+	\end{tabular} 	
+ \end{tabular}
+}
+\fancyhead[R]{
+	\begin{tabular}{l}
+		\tiny \bf \\
+		\tiny \bf 
+	\end{tabular}  }
+\fancyfoot{} % clear all footer fields
+\fancyfoot[L]{\footnotesize Homework 2 - CO3061 - Học kì 252} 
+\fancyfoot[R]{\footnotesize Trang {\thepage}/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+
+%%%
+\setcounter{secnumdepth}{4}
+\makeatletter
+\newcounter {subsubsubsection}[subsubsection]
+\renewcommand\thesubsubsubsection{\thesubsubsection .\@alph\c@subsubsubsection}
+\newcommand\subsubsubsection{\@startsection{subsubsubsection}{4}{\z@}%
+                                     {-3.25ex\@plus -1ex \@minus -.2ex}%
+                                     {1.5ex \@plus .2ex}%
+                                     {\normalfont\normalsize\bfseries}}
+\newcommand*\l@subsubsubsection{\@dottedtocline{3}{10.0em}{4.1em}}
+\newcommand*{\subsubsubsectionmark}[1]{}
+
+\makeatother
+
+% \everymath{\color{blue}}%make in-line maths symbols blue to read/check easily
+
+\sloppy
+\captionsetup[figure]{labelfont={small,bf},textfont={small,it},belowskip=5pt,aboveskip=10pt}
+%space remove between caption, figure, and text
+\captionsetup[table]{labelfont={small,bf},textfont={small,it},belowskip=5pt,aboveskip=10pt}
+
+
+
+
+\setlength{\floatsep}{5pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{5pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+
+\thesislayout
+%code
+\usepackage{listings}
+\usepackage{color} % tô màu cho code
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\def\changemargin#1#2{\list{}{\rightmargin#2\leftmargin#1}\item[]}
+\let\endchangemargin=\endlist
+
+
+\lstset{
+    aboveskip=3mm,
+    belowskip=3mm,
+    columns=flexible,
+    backgroundcolor=\color{gray!10},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=none,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    otherkeywords = {!,!=,~,*,\&,\%/\%,\%*\%,\%\%,\-, \%in\%,<-,<<-,/},
+    alsoletter={.,\_},
+    literate=%
+        {-}{{\textendash}}1
+        {/}{{\text{/}}}1
+	{á}{{\'a}}1
+	{à}{{\`a}}1
+	{ạ}{{\d a}}1
+	{ả}{{\h a}}1
+	{ã}{{\~ a}}1
+	{Á}{{\'A}}1
+	{À}{{\`A}}1
+	{Ạ}{{\d A}}1
+	{Ả}{{\h A}}1
+	{Ã}{{\~ A}}1
+	{ă}{{\u a}}1
+	{ắ}{{\'\abreve }}1
+	{ằ}{{\`\abreve }}1
+	{ặ}{{\d \abreve }}1
+	{ẳ}{{\h \abreve }}1
+	{ẵ}{{\~\abreve }}1
+	{Ă}{{\u A}}1
+	{Ắ}{{\'\ABREVE }}1
+	{Ằ}{{\`\ABREVE }}1
+	{Ặ}{{\d \ABREVE }}1
+	{Ẳ}{{\h \ABREVE }}1
+	{Ẵ}{{\~\ABREVE }}1
+	{â}{{\^ a}}1
+	{ấ}{{\'\acircumflex }}1
+	{ầ}{{\`\acircumflex }}1
+	{ậ}{{\d \acircumflex }}1
+	{ẩ}{{\h \acircumflex }}1
+	{ẫ}{{\~\acircumflex }}1
+	{Â}{{\^ A}}1
+	{Ấ}{{\'\ACIRCUMFLEX }}1
+	{Ầ}{{\`\ACIRCUMFLEX }}1
+	{Ậ}{{\d \ACIRCUMFLEX }}1
+	{Ẩ}{{\h \ACIRCUMFLEX }}1
+	{Ẫ}{{\~\ACIRCUMFLEX }}1
+	{đ}{{\dj }}1
+	{Đ}{{\DJ }}1
+	{é}{{\'e}}1
+	{è}{{\`e}}1
+	{ẹ}{{\d e}}1
+	{ẻ}{{\h e}}1
+	{ẽ}{{\~ e}}1
+	{É}{{\'E}}1
+	{È}{{\`E}}1
+	{Ẹ}{{\d E}}1
+	{Ẻ}{{\h E}}1
+	{Ẽ}{{\~ E}}1
+	{ê}{{\^e}}1
+	{ế}{{\'\ecircumflex }}1
+	{ề}{{\`\ecircumflex }}1
+	{ệ}{{\d \ecircumflex }}1
+	{ể}{{\h \ecircumflex }}1
+	{ễ}{{\~\ecircumflex }}1
+	{Ê}{{\^E}}1
+	{Ế}{{\'\ECIRCUMFLEX }}1
+	{Ề}{{\`\ECIRCUMFLEX }}1
+	{Ệ}{{\d \ECIRCUMFLEX }}1
+	{Ể}{{\h \ECIRCUMFLEX }}1
+	{Ễ}{{\~\ECIRCUMFLEX }}1
+	{í}{{\'i}}1
+	{ì}{{\`\i }}1
+	{ị}{{\d i}}1
+	{ỉ}{{\h i}}1
+	{ĩ}{{\~\i }}1
+	{Í}{{\'I}}1
+	{Ì}{{\`I}}1
+	{Ị}{{\d I}}1
+	{Ỉ}{{\h I}}1
+	{Ĩ}{{\~I}}1
+	{ó}{{\'o}}1
+	{ò}{{\`o}}1
+	{ọ}{{\d o}}1
+	{ỏ}{{\h o}}1
+	{õ}{{\~o}}1
+	{Ó}{{\'O}}1
+	{Ò}{{\`O}}1
+	{Ọ}{{\d O}}1
+	{Ỏ}{{\h O}}1
+	{Õ}{{\~O}}1
+	{ô}{{\^o}}1
+	{ố}{{\'\ocircumflex }}1
+	{ồ}{{\`\ocircumflex }}1
+	{ộ}{{\d \ocircumflex }}1
+	{ổ}{{\h \ocircumflex }}1
+	{ỗ}{{\~\ocircumflex }}1
+	{Ô}{{\^O}}1
+	{Ố}{{\'\OCIRCUMFLEX }}1
+	{Ồ}{{\`\OCIRCUMFLEX }}1
+	{Ộ}{{\d \OCIRCUMFLEX }}1
+	{Ổ}{{\h \OCIRCUMFLEX }}1
+	{Ỗ}{{\~\OCIRCUMFLEX }}1
+	{ơ}{{\ohorn }}1
+	{ớ}{{\'\ohorn }}1
+	{ờ}{{\`\ohorn }}1
+	{ợ}{{\d \ohorn }}1
+	{ở}{{\h \ohorn }}1
+	{ỡ}{{\~\ohorn }}1
+	{Ơ}{{\OHORN }}1
+	{Ớ}{{\'\OHORN }}1
+	{Ờ}{{\`\OHORN }}1
+	{Ợ}{{\d \OHORN }}1
+	{Ở}{{\h \OHORN }}1
+	{Ỡ}{{\~\OHORN }}1
+	{ú}{{\'u}}1
+	{ù}{{\`u}}1
+	{ụ}{{\d u}}1
+	{ủ}{{\h u}}1
+	{ũ}{{\~u}}1
+	{Ú}{{\'U}}1
+	{Ù}{{\`U}}1
+	{Ụ}{{\d U}}1
+	{Ủ}{{\h U}}1
+	{Ũ}{{\~U}}1
+	{ư}{{\uhorn }}1
+	{ứ}{{\'\uhorn }}1
+	{ừ}{{\`\uhorn }}1
+	{ự}{{\d \uhorn }}1
+	{ử}{{\h \uhorn }}1
+	{ữ}{{\~\uhorn }}1
+	{Ư}{{\UHORN }}1
+	{Ứ}{{\'\UHORN }}1
+	{Ừ}{{\`\UHORN }}1
+	{Ự}{{\d \UHORN }}1
+	{Ử}{{\h \UHORN }}1
+	{Ữ}{{\~\UHORN }}1
+	{ý}{{\'y}}1
+	{ỳ}{{\`y}}1
+	{ỵ}{{\d y}}1
+	{ỷ}{{\h y}}1
+	{ỹ}{{\~y}}1
+	{Ý}{{\'Y}}1
+	{Ỳ}{{\`Y}}1
+	{Ỵ}{{\d Y}}1
+	{Ỷ}{{\h Y}}1
+	{Ỹ}{{\~Y}}1
+}
+
+
+% Glossary
+\makeglossaries
+
+\input{Bibliocosas/glossary.tex}
+
+\setstretch{1.5}
+% \setlength{\parskip}{1em}
+% \addbibresource{"References/references.bib"}
+
+% TODO
+% \setcounter{tocdepth}{1}
+
+\begin{document}
+\def\biblio{}
+
+    \begin{titlepage}
+
+        \begin{center}
+            
+        \begin{tikzpicture}[remember picture,overlay,inner sep=0,outer sep=0]
+             \draw[blue!70!black,line width=4pt] ([xshift=-2cm,yshift=-2cm]current page.north east) coordinate (A)--([xshift=2cm,yshift=-2cm]current page.north west) coordinate(B)--([xshift=2cm,yshift=2cm]current page.south west) coordinate (C)--([xshift=-2cm,yshift=2cm]current page.south east) coordinate(D)--cycle;
+        
+             \draw ([yshift=0.5cm,xshift=-0.5cm]A)-- ([yshift=0.5cm,xshift=0.5cm]B)--
+             ([yshift=-0.5cm,xshift=0.5cm]B) --([yshift=-0.5cm,xshift=-0.5cm]B)--([yshift=0.5cm,xshift=-0.5cm]C)--([yshift=0.5cm,xshift=0.5cm]C)--([yshift=-0.5cm,xshift=0.5cm]C)-- ([yshift=-0.5cm,xshift=-0.5cm]D)--([yshift=0.5cm,xshift=-0.5cm]D)--([yshift=0.5cm,xshift=0.5cm]D)--([yshift=-0.5cm,xshift=0.5cm]A)--([yshift=-0.5cm,xshift=-0.5cm]A)--([yshift=0.5cm,xshift=-0.5cm]A);
+        
+        
+             \draw ([yshift=-0.3cm,xshift=0.3cm]A)-- ([yshift=-0.3cm,xshift=-0.3cm]B)--
+             ([yshift=0.3cm,xshift=-0.3cm]B) --([yshift=0.3cm,xshift=0.3cm]B)--([yshift=-0.3cm,xshift=0.3cm]C)--([yshift=-0.3cm,xshift=-0.3cm]C)--([yshift=0.3cm,xshift=-0.3cm]C)-- ([yshift=0.3cm,xshift=0.3cm]D)--([yshift=-0.3cm,xshift=0.3cm]D)--([yshift=-0.3cm,xshift=-0.3cm]D)--([yshift=0.3cm,xshift=-0.3cm]A)--([yshift=0.3cm,xshift=0.3cm]A)--([yshift=-0.3cm,xshift=0.3cm]A);
+        
+        \end{tikzpicture}
+            
+            \textbf{ĐẠI HỌC QUỐC GIA TP.HCM}
+            
+            \textbf{TRƯỜNG ĐẠI HỌC BÁCH KHOA}
+            
+            \textbf{KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}
+            \vspace{0.5cm}
+            \begin{figure}[ht]
+                \centering
+                \includegraphics[width=4.5cm]{images/logoBK.jpg}
+            \end{figure}
+
+            \vspace{0.5cm}
+
+            \large
+            
+            \textbf{BÁO CÁO BÀI TẬP LỚN}
+            
+            \textbf{Môn học: Kiến trúc phần mềm (CO3017)} 
+            
+            \textbf{Học kì: 251}
+
+            \vspace{0.5cm}
+            
+            \begin{changemargin}{1.5cm}{1.5cm}
+                \begin{center}
+                    
+                    \Large
+                    \textbf{INTELLIGENT RESTAURANT MANAGEMENT SYSTEM (IRMS)}
+                \end{center}
+            \end{changemargin}
+            
+            \vspace{0.5cm}
+
+		  \normalsize
+            
+            {
+            \begin{center}
+            \renewcommand{\arraystretch}{1.25}
+            \begin{tabular}{ p{0.5cm} p{0.5cm} p{6cm} p{5cm} }
+				& \multicolumn{2}{l}{\textbf{Giáo viên hướng dẫn:}} & Trần Trương Tuấn Phát \\
+    
+				& \multicolumn{3}{l}{\textbf{Sinh viên thực hiện:}} \\
+				\vspace{0.5cm}
+				& &Nguyễn Gia Bảo		&2210254 \\
+				& &Nguyễn Huỳnh Thái Bảo		&2210251 \\
+				& &Nguyễn Trương Thái Bảo		&2210251 \\
+
+		\end{tabular}
+            \end{center}
+            }
+
+                \vspace{2cm}
+
+                \footnotesize
+                TP. Hồ Chí Minh, tháng 11/2025
+
+                \vspace{5mm}
+        \end{center}
+    \end{titlepage}
+
+
+
+%%%%% MARKUP BEGIN CHUONG 0 %%%%%%%%%%%%%
+
+\chapter*{Lời cam đoan}
+\input{chapters/0. Mở đầu/loicamdoan.tex}
+\thispagestyle{empty}
+
+
+\chapter*{Lời cảm ơn}
+\input{chapters/0. Mở đầu/loicamon.tex}
+\thispagestyle{empty}
+
+\chapter*{Tóm tắt}
+\input{chapters/0. Mở đầu/tomtat.tex}
+\thispagestyle{empty}
+
+
+\newpage
+\section*{Thông tin nhóm hiện thực}
+
+Danh sách thành viên nhóm:
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.6} 
+    \begin{tabularx}{\textwidth}{|c|l|c|>{\RaggedRight\arraybackslash}X|c|}
+        \hline
+        \textbf{STT} & \textbf{Họ và tên} & \textbf{MSSV} & \textbf{Nhiệm vụ phân công} & \textbf{Tỷ lệ đóng góp} \\ \hline
+        1 & Nguyễn Gia Bảo & 2210254 & Kiến trúc & 100\% \\ \hline
+        2 & Nguyễn Huỳnh Thái Bảo & 2210251 & Thiết kế chi tiết & 100\% \\ \hline
+        3 & Nguyễn Trương Thái Bảo & 2210251 & Tài liệu & 100\% \\ \hline
+    \end{tabularx}
+\end{table}
+
+
+
+\newpage
+
+\tableofcontents
+\thispagestyle{empty}
+
+%%%%% MARKUP END CHUONG 0 %%%%%%%%%%%%%
+
+
+
+
+
+\listoftables
+\thispagestyle{empty}
+
+\listoffigures
+\thispagestyle{empty}
+
+% \lstlistoflistings
+% \thispagestyle{empty}
+
+\clearpage
+
+% \printglossary[type=\acronymtype]
+\thispagestyle{empty}
+
+
+\setcounter{page}{1}
+%%%%% MARKUP BEGIN CHUONG 1 %%%%%%%%%%%%%
+
+\chapter{Tổng quan hệ thống}
+\label{chap:overall}
+\thispagestyle{fancy}
+\import{chapters/1. Tổng quan/}{main.tex}
+%%%%% MARKUP END CHUONG 1 %%%%%%%%%%%%%
+
+%%%%% MARKUP BEGIN CHUONG 2 %%%%%%%%%%%%%
+
+\chapter{Lựa chọn phong cách kiến trúc}\label{chap:arch-choice}
+\thispagestyle{fancy}
+\import{chapters/2. Dong luc/}{main.tex}
+
+%%%%% MARKUP END CHUONG 2 %%%%%%%%%%%%%
+
+%%%%% MARKUP BEGIN CHUONG 3 %%%%%%%%%%%%%
+
+\chapter{Thiết kế kiến trúc phần mềm}
+\label{chap:arch-design}
+\thispagestyle{fancy}
+\import{chapters/3. Phân tích bài toán và dữ liệu/}{main.tex}
+
+%%%%% MARKUP END CHUONG 3 %%%%%%%%%%%%%
+
+%%%%% MARKUP BEGIN CHUONG 4 %%%%%%%%%%%%%
+
+\chapter{Thiết kế chi tiết}
+\label{chap:detailed-design}
+\thispagestyle{fancy}
+\import{chapters/4. Thiết kế hệ thống E-Commerce tích hợp Pipeline/}{main.tex}
+
+%%%%% MARKUP END CHUONG 4 %%%%%%%%%%%%%
+
+%%%%% MARKUP BEGIN CHUONG 5 %%%%%%%%%%%%%
+
+\chapter{Tổng kết}
+\label{chap:summary}
+\thispagestyle{fancy}
+\import{chapters/5. Tổng kết/}{main.tex}
+
+%%%%% MARKUP END CHUONG 5 %%%%%%%%%%%%%
+
+%%%%% MARKUP BEGIN PHU LUC %%%%%%%%%%%%%
+
+\newpage
+\appendix
+\import{chapters/Phụ lục/}{main.tex}
+
+%%%%% MARKUP END PHU LUC %%%%%%%%%%%%%
+
+\newpage
+
+% In tài liệu tham khảo
+\input{chapters/8.ket_luan/8.2.tex}
+
+\end{document}

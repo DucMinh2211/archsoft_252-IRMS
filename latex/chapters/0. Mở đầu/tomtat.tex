@@ -1,0 +1,5 @@
+Báo cáo này trình bày quy trình thiết kế kiến trúc phần mềm cho Hệ thống Quản lý Nhà hàng Thông minh (Intelligent Restaurant Management System - IRMS). Mục tiêu chính của hệ thống là tối ưu hóa quy trình vận hành từ khâu đặt món, điều phối bếp đến quản lý thanh toán và tồn kho.
+
+Dựa trên việc phân tích kỹ lưỡng các yêu cầu chức năng và phi chức năng, đặc biệt là tính sẵn sàng cao, hiệu năng thời gian thực và khả năng bảo trì, nhóm đã quyết định lựa chọn phong cách kiến trúc \textbf{Service-Based Architecture}. Đây là một kiến trúc phân tán thực dụng, cho phép phân vùng hệ thống theo các miền nghiệp vụ (domain-partitioned) như Order, Kitchen, Payment, và Inventory, đồng thời vẫn duy trì được tính toàn vẹn dữ liệu thông qua các giao dịch ACID.
+
+Kiến trúc được chi tiết hóa qua ba góc nhìn: Module View (phân rã mã nguồn), Component-and-Connector View (tương tác runtime) và Allocation View (triển khai hạ tầng). Kết quả thiết kế đảm bảo hệ thống có khả năng mở rộng linh hoạt, dễ dàng bảo trì và đáp ứng tốt các thách thức vận hành trong môi trường nhà hàng hiện đại.

@@ -1,0 +1,41 @@
+\section{Yêu cầu chức năng}
+
+Các yêu cầu chức năng cốt lõi của hệ thống được tổng hợp trong Bảng \ref{tab:functional_requirements}.
+
+\begin{table}[H]
+\centering
+\caption{Bảng yêu cầu chức năng của hệ thống IRMS}
+\label{tab:functional_requirements}
+\begin{tabularx}{\textwidth}{|l|l|X|}
+\hline
+\textbf{ID} & \textbf{Yêu cầu} & \textbf{Mô tả chi tiết} \\ \hline
+FR01 & Quản lý đơn hàng & Tạo, sửa, hủy đơn hàng với các tùy chỉnh và ghi chú đặc biệt. \\ \hline
+FR02 & Quản lý thực đơn & Thêm, sửa, xóa món; cập nhật giá; đánh dấu món hết. \\ \hline
+FR03 & Hiển thị đơn bếp & Hiển thị đơn hàng theo thứ tự ưu tiên, trạm làm việc và tiến độ. \\ \hline
+FR04 & Quản lý bàn & Theo dõi trạng thái bàn, gán khách, ước tính thời gian phục vụ. \\ \hline
+FR05 & Đặt chỗ trước & Cho phép đặt bàn trước, quản lý danh sách chờ và thông báo. \\ \hline
+FR06 & Thanh toán & Xử lý thanh toán đa phương thức, chia hóa đơn, quản lý tip. \\ \hline
+FR07 & Quản lý tồn kho & Cập nhật tồn kho, cảnh báo ngưỡng, theo dõi lịch sử sử dụng. \\ \hline
+FR08 & Báo cáo & Tạo báo cáo doanh thu, hiệu suất vận hành và phân tích xu hướng. \\ \hline
+FR09 & Quản lý người dùng & Phân quyền theo vai trò (Manager, Server, Chef, Cashier). \\ \hline
+FR10 & Nhật ký kiểm toán & Ghi lại các hành động quan trọng (hoàn tiền, hủy đơn) để kiểm tra. \\ \hline
+\end{tabularx}
+\end{table}
+
+\section{Yêu cầu phi chức năng}
+
+Dựa trên đặc thù của ngành dịch vụ ăn uống, các đặc tính kiến trúc (Architecture Characteristics) quan trọng được xác định như sau:
+
+\subsection{Đặc tính vận hành}
+\begin{itemize}
+    \item \textbf{Availability (Khả dụng)}: Cao. Hệ thống phải hoạt động liên tục trong suốt giờ phục vụ của nhà hàng.
+    \item \textbf{Performance (Hiệu năng)}: Cao. Yêu cầu phản hồi thời gian thực cho đặt món và hiển thị bếp để tránh trễ đơn.
+    \item \textbf{Reliability (Độ tin cậy)}: Cao. Đảm bảo thông tin đơn hàng và giao dịch thanh toán không bị mất mát hoặc sai lệch.
+\end{itemize}
+
+\subsection{Đặc tính cấu trúc}
+\begin{itemize}
+    \item \textbf{Maintainability (Khả năng bảo trì)}: Cao. Hệ thống cần dễ dàng cập nhật khi thực đơn, giá cả hoặc quy trình thay đổi.
+    \item \textbf{Modularity (Tính mô-đun)}: Cao. Các phân hệ (Order, Kitchen, Payment) cần sự độc lập nhất định để giảm thiểu ảnh hưởng chéo.
+    \item \textbf{Extensibility (Khả năng mở rộng)}: Cao. Cho phép tích hợp thêm các dịch vụ mới như giao hàng (delivery) hoặc chương trình khách hàng thân thiết.
+\end{itemize}

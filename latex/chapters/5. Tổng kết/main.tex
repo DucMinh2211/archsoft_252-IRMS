@@ -1,0 +1,26 @@
+\section{Đánh giá kết quả thực hiện}
+Trong quá trình thực hiện đồ án, nhóm đã đạt được các kết quả quan trọng sau:
+\begin{itemize}
+    \item Phân tích và làm rõ ngữ cảnh nghiệp vụ phức tạp của hệ thống quản lý nhà hàng hiện đại.
+    \item Lựa chọn và bảo vệ thành công phong cách kiến trúc Service-Based Architecture phù hợp với quy mô và yêu cầu đặc thù của hệ thống.
+    \item Hoàn thành thiết kế kiến trúc qua các góc nhìn (Module, C\&C, Allocation) một cách hệ thống và nhất quán.
+    \item Thiết kế chi tiết các lớp đối tượng tuân thủ các nguyên lý thiết kế phần mềm bền vững (SOLID).
+\end{itemize}
+
+\section{Hạn chế của hệ thống}
+Mặc dù thiết kế đạt được các tiêu chí đề ra, vẫn còn một số hạn chế cần lưu ý:
+\begin{itemize}
+    \item Kiến trúc Service-Based vẫn có rủi ro về "Shared Database" nếu không được quản lý phân quyền chặt chẽ giữa các service.
+    \item Việc xử lý lỗi trong giao tiếp bất đồng bộ qua Message Queue cần được thiết kế kỹ lưỡng hơn (ví dụ: Dead Letter Queues).
+\end{itemize}
+
+\section{Hướng phát triển tương lai}
+Để nâng cao giá trị của hệ thống, nhóm đề xuất các hướng phát triển tiếp theo:
+\begin{itemize}
+    \item Tích hợp AI để dự đoán lượng khách và tối ưu hóa việc đặt hàng nguyên liệu tồn kho.
+    \item Chuyển đổi các module tải nặng sang kiến trúc Microservices hoàn chỉnh nếu nhà hàng mở rộng thành chuỗi quy mô lớn.
+    \item Xây dựng ứng dụng di động cho khách hàng để tự đặt món tại bàn thông qua QR code.
+\end{itemize}
+
+\section{Kết luận}
+Báo cáo đã trình bày một cách toàn diện quy trình thiết kế kiến trúc cho hệ thống IRMS. Việc áp dụng tư duy kiến trúc đúng đắn ngay từ đầu không chỉ giúp xây dựng một sản phẩm đáp ứng tốt yêu cầu hiện tại mà còn tạo ra một nền tảng vững chắc cho sự phát triển lâu dài của doanh nghiệp.

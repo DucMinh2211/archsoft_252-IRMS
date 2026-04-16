@@ -1,0 +1,136 @@
+\section{Lý thuyết Game Tree}
+
+Cờ vua thuộc loại trò chơi thông tin đầy đủ, đối kháng và không có yếu tố ngẫu nhiên. Trạng thái của trò chơi tại bất kỳ thời điểm nào có thể được biểu diễn chính xác dưới dạng một cây trò chơi.
+
+\subsection{Kích thước không gian trạng thái}
+Hệ số nhánh trung bình của cờ vua là khoảng $b \approx 35$, và độ dài trung bình của một ván cờ là $d \approx 80$ lớp nước đi (ply). Điều này dẫn đến tổng số nút trong cây trò chơi đầy đủ là khoảng $35^{80} \approx 10^{123}$. Đây là con số Shannon nổi tiếng, chứng minh rằng không thể có bất kỳ máy tính nào có thể giải quyết cờ vua bằng phương pháp vét cạn. Thách thức cốt lõi của AI là phải tìm ra các lát cắt tối ưu trong cây khổng lồ này để đưa ra quyết định trong vài giây.
+
+\section{Thuật toán Alpha-Beta Pruning (Biến thể Negamax)}
+
+Trong dự án này, chúng tôi triển khai biến thể \textbf{Negamax} của thuật toán Alpha-Beta. Đây là một cách tối ưu hóa mã nguồn dựa trên nhận định: trong trò chơi zero-sum, $\max(a, b) = -\min(-a, -b)$. Thay vì viết hai khối mã riêng biệt cho người chơi Max và Min, chúng ta chỉ cần một khối mã duy nhất xử lý giá trị tương đối so với người chơi đang thực hiện nước đi.
+
+\subsection{Cơ chế cắt tỉa Alpha và Beta}
+Thuật toán hoạt động dựa trên việc duy trì hai ranh giới logic:
+\begin{itemize}
+    \item \textbf{Alpha ($\alpha$):} Điểm số tối thiểu mà người chơi hiện tại chắc chắn đạt được.
+    \item \textbf{Beta ($\beta$):} Điểm số tối đa mà đối thủ sẽ cho phép người chơi hiện tại đạt được.
+\end{itemize}
+
+Để tối ưu hiệu suất, thuật toán sử dụng Transposition Table để lưu trữ các vị trí đã được đánh giá.\footnote{Breuker, D. M., Uiterwijk, J. W. H. M., \& van den Herik, H. J. (1994). Replacement Schemes for Transposition Tables. \textit{ICCA Journal}, 17(4), 183–193.}
+
+\begin{algorithm}[H]
+\caption{Negamax với Transposition Table}
+\begin{algorithmic}[1]
+\Function{Negamax}{board, depth, $\alpha$, $\beta$}
+    \State $orig\_ \alpha \gets \alpha$
+    \State $entry \gets \text{TT.lookup}(board.hash)$
+    \If{$entry$ is valid \textbf{and} $entry.depth \ge depth$}
+        \If{$entry.type = \text{EXACT}$} \State \Return $entry.value$
+        \ElsIf{$entry.type = \text{LOWER}$} \State $\alpha \gets \max(\alpha, entry.value)$
+        \ElsIf{$entry.type = \text{UPPER}$} \State $\beta \gets \min(\beta, entry.value)$
+        \EndIf
+        \If{$\alpha \ge \beta$} \State \Return $entry.value$ \EndIf
+    \EndIf
+
+    \If{$depth = 0$ \textbf{or} board.is\_over()}
+        \State \Return \Call{Quiescence}{board, $\alpha$, $\beta$}
+    \EndIf
+
+    \State $best\_val \gets -\infty$
+    \For{$move \in \text{SortMoves}(board.legal\_moves)$}
+        \State board.push(move)
+        \State $val \gets -\Call{Negamax}{board, depth-1, -\beta, -\alpha}$
+        \State board.pop()
+        \State $best\_val \gets \max(best\_val, val)$
+        \State $\alpha \gets \max(\alpha, val)$
+        \If{$\alpha \ge \beta$} \textbf{break} \EndIf
+    \EndFor
+
+    \State $\text{TT.store}(board.hash, best\_val, depth, \text{GetType}(best\_val, orig\_ \alpha, \beta))$
+    \State \Return $best\_val$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Quiescence Search}
+Vấn đề lớn nhất của Alpha-Beta là "hiệu ứng đường chân trời". Nếu thuật toán dừng lại ở độ sâu $d$, nó có thể đánh giá sai một vị trí đang trong chuỗi ăn quân chưa kết thúc. Để giải quyết, Quiescence Search tiếp tục duyệt cây vượt quá độ sâu $d$, nhưng chỉ xét các nước đi ăn quân cho đến khi thế trận thực sự "tĩnh".\footnote{Marsland, T. A., \& Schaeffer, J. (1990). \textit{Computers, Chess, and Cognition}. Springer-Verlag.}
+
+\begin{algorithm}[H]
+\caption{Quiescence Search}
+\begin{algorithmic}[1]
+\Function{Quiescence}{board, $\alpha$, $\beta$}
+    \State $stand\_pat \gets \text{Evaluate}(board)$
+    \If{$stand\_pat \ge \beta$} \State \Return $stand\_pat$ \EndIf
+    \State $\alpha \gets \max(\alpha, stand\_pat)$
+    
+    \For{$move \in board.legal\_captures()$}
+        \State board.push(move)
+        \State $score \gets -\Call{Quiescence}{board, -\beta, -\alpha}$
+        \State board.pop()
+        \If{$score \ge \beta$} \State \Return $score$ \EndIf
+        \State $\alpha \gets \max(\alpha, score)$
+    \EndFor
+    \State \Return $\alpha$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\linewidth]{../../images/ai/alphabeta-logic-flow.png}
+    \caption{Sơ đồ luồng thuật toán Alpha-Beta Pruning (Negamax \& Quiescence Search)}
+    \label{fig:alphabeta_flow}
+\end{figure}
+
+\section{Thuật toán Monte Carlo Tree Search (MCTS)}
+
+Khác với Alpha-Beta duyệt sâu theo chiều dọc, MCTS xây dựng cây trò chơi theo hướng mở rộng các nhánh mang lại tỷ lệ thắng cao thông qua thống kê.
+
+\begin{algorithm}[H]
+\caption{Monte Carlo Tree Search}
+\begin{algorithmic}[1]
+\Function{MCTS}{root\_node, iterations}
+    \For{$i = 1$ \textbf{to} $iterations$}
+        \State $node \gets \Call{Selection}{root\_node}$
+        \State $node \gets \Call{Expansion}{node}$
+        \State $reward \gets \Call{Simulation}{node.board}$
+        \State \Call{Backpropagation}{node, reward}
+    \EndFor
+    \State \Return $\text{child of root\_node with max visits}$
+\EndFunction
+\Function{Selection}{node}
+    \While{$node.has\_children()$}
+        \State $node \gets \arg\max_{c \in node.children} \left( \frac{w_c}{n_c} + C \sqrt{\frac{\ln n_{node}}{n_c}} \right)$
+    \EndWhile
+    \State \Return $node$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Bốn giai đoạn của MCTS}
+\begin{enumerate}
+    \item \textbf{Selection:} Sử dụng công thức UCB1 để chọn nút con từ gốc. Công thức này cân bằng giữa khai thác nước đi tốt đã biết và thăm dò nước đi mới chưa duyệt nhiều.
+    \[ UCB1 = \frac{w_i}{n_i} + c \sqrt{\frac{\ln N_i}{n_i}} \]
+    Trong đó $w_i$ là số ván thắng, $n_i$ là số lần duyệt nút con, $N_i$ là số lần duyệt nút cha và $c$ là hằng số thăm dò ($\approx 1.41$).
+    
+    \item \textbf{Expansion:} Nếu một nút chưa được duyệt hết các nước đi hợp lệ, một nút con mới sẽ được tạo ra và thêm vào cây.
+    
+    \item \textbf{Simulation:} Thực hiện một ván chơi giả lập từ nút mới. Trong dự án này, chúng tôi sử dụng Smart Rollouts - thay vì đi ngẫu nhiên hoàn toàn, AI sẽ ưu tiên các nước ăn quân đơn giản để mô phỏng chính xác hơn.
+    
+    \item \textbf{Backpropagation:} Kết quả của simulation được cập nhật ngược lên toàn bộ các nút tổ tiên, thay đổi giá trị trung bình $w_i/n_i$ của chúng.
+\end{enumerate}
+
+\textbf{Sơ đồ luồng thuật toán MCTS: } \href{https://drive.google.com/file/d/1dWdhr5YxImuhE4qjHy9S6u2ekVSK3WdT/view?usp=sharing}{Link drive}
+
+
+\section{Phương pháp kết hợp Hybrid MCTS+AB}
+
+Mặc dù MCTS mạnh mẽ trong việc khám phá không gian trạng thái, nó thường gặp khó khăn trong cờ vua do "bẫy" chiến thuật sâu (tactical blunders). Ngược lại, Alpha-Beta cực kỳ chính xác trong tính toán ngắn hạn. Phương pháp Hybrid kết hợp hai thuật toán này thông qua cơ chế \textbf{Alpha-Beta Seeding}:
+
+\begin{itemize}
+    \item \textbf{Sàng lọc (AB Screening):} Trước khi bắt đầu MCTS, thuật toán sử dụng Alpha-Beta ở độ sâu thấp để đánh giá và chọn ra top $K$ nước đi tiềm năng nhất.
+    \item \textbf{Khởi tạo trọng số (Heuristic Seeding):} Thay vì bắt đầu với các nút con có giá trị 0, các nút thuộc top $K$ được gán số lượt truy cập ảo (Virtual Visits) và tỷ lệ thắng ảo dựa trên điểm số Alpha-Beta. Điều này giúp MCTS tập trung tài nguyên mô phỏng vào các vùng không gian "có triển vọng" ngay từ iteration đầu tiên.
+    \item \textbf{Tối ưu hóa tàn cuộc:} Trong giai đoạn tàn cuộc, tham số $K$ được thu hẹp và độ sâu Alpha-Beta được tăng cường để đảm bảo AI tìm thấy các chuỗi nước đi chiếu bí chính xác.
+\end{itemize}
+
+MCTS có ưu điểm là không cần hàm Heuristic quá tinh vi, vì nó "tự học" giá trị của một vị trí thông qua hàng ngàn kết quả thực tế của các ván đấu giả lập.

@@ -1,0 +1,45 @@
+\section{Lịch sử phát triển của Chess Engine}
+
+Việc xây dựng một hệ thống chơi cờ vua tự động đã là mục tiêu của trí tuệ nhân tạo ngay từ những ngày đầu thành lập. Lịch sử này có thể chia làm ba giai đoạn chính: giai đoạn sơ khai dựa trên các quy tắc cứng, giai đoạn thống trị của thuật toán tìm kiếm (Search-based), và kỷ nguyên của học máy sâu (Learning-based).
+
+\subsection{Sự kiện Deep Blue và bước ngoặt lịch sử}
+Vào năm 1997, sự kiện siêu máy tính Deep Blue của IBM đánh bại nhà vô địch thế giới Garry Kasparov đã đánh dấu một cột mốc quan trọng. Deep Blue không sử dụng các mạng thần kinh phức tạp như hiện nay mà dựa trên sức mạnh tính toán thuần túy (Brute-force) kết hợp với các chip tùy chỉnh chuyên dụng để duyệt hàng trăm triệu nước đi mỗi giây. Thành công của nó khẳng định rằng việc kết hợp giữa thuật toán cắt tỉa Alpha-Beta và tri thức chuyên gia (Heuristic) có thể vượt qua trí tuệ con người trong các không gian trạng thái bị giới hạn bởi luật lệ.
+
+\section{Phân tích các Engine cờ vua hiện đại}
+
+Ngày nay, các engine cờ vua không còn chỉ dựa vào sức mạnh phần cứng mà tập trung vào sự tinh tế của thuật toán và cách biểu diễn tri thức.
+
+\subsection{Stockfish - Sự kết hợp giữa truyền thống và hiện đại}
+Stockfish là đại diện tiêu biểu nhất cho trường phái duyệt cây có hệ thống. Nó sử dụng thuật toán Alpha-Beta nhưng được nâng cấp bởi hàng loạt kỹ thuật tối ưu hóa:
+\begin{itemize}
+    \item \textbf{Bitboards:} Toàn bộ bàn cờ được biểu diễn dưới dạng các số nguyên 64-bit, cho phép sử dụng các phép toán bitwise cực nhanh để tính toán nước đi hợp lệ và kiểm soát không gian.
+    \item \textbf{NNUE (Efficiently Updatable Neural Networks):} Đây là một cuộc cách mạng trong thế giới engine. Thay vì dùng hàm đánh giá tĩnh do con người viết, Stockfish tích hợp một mạng thần kinh nông được huấn luyện trên hàng tỷ vị trí. Mạng này cực kỳ nhẹ và có thể cập nhật nhanh chóng sau mỗi nước đi, giúp AI hiểu thế trận sâu sắc hơn nhiều so với các công thức toán học truyền thống.
+\end{itemize}
+
+\subsection{AlphaZero và sự trỗi dậy của MCTS}
+AlphaZero của DeepMind đã làm cả thế giới kinh ngạc khi học chơi cờ từ con số 0 chỉ trong 4 giờ tự chơi. Nó không sử dụng Alpha-Beta mà sử dụng Monte Carlo Tree Search (MCTS) kết hợp với mạng thần kinh tích chập sâu (CNN).
+\begin{itemize}
+    \item \textbf{Policy và Value Network:} MCTS trong AlphaZero không chạy ngẫu nhiên. Mạng thần kinh sẽ dự đoán xác suất các nước đi tốt (Policy) để thu hẹp chiều rộng của cây tìm kiếm và ước lượng giá trị thế trận (Value) để thay thế cho giai đoạn Simulation dài hơi.
+    \item \textbf{Tính trực quan:} Cách chơi của AlphaZero được các đại kiện tướng đánh giá là mang tính "trực giác" và "người" hơn nhiều so với Stockfish, mở ra một hướng đi mới cho việc áp dụng MCTS vào các trò chơi phức tạp.
+\end{itemize}
+
+\section{So sánh các đặc tính kỹ thuật cốt lõi}
+
+Việc lựa chọn giữa Alpha-Beta và MCTS không chỉ là chọn một thuật toán, mà là chọn một triết lý xử lý dữ liệu.
+
+\begin{table}[H]
+    \centering
+    \caption{So sánh chuyên sâu đặc tính của Alpha-Beta và MCTS}
+    \label{tab:deep_comparison}
+    \begin{tabularx}{\textwidth}{|l|X|X|}
+        \hline
+        \textbf{Tiêu chí} & \textbf{Alpha-Beta Pruning} & \textbf{Monte Carlo Tree Search} \\ \hline
+        \textbf{Cơ chế cốt lõi} & Duyệt DFS, đảm bảo tìm ra nước đi tốt nhất trong giới hạn độ sâu. & Duyệt bất đối xứng dựa trên thống kê xác suất thắng. \\ \hline
+        \textbf{Độ phức tạp} & Tăng theo hàm mũ với độ sâu ($O(b^d)$). & Tăng tuyến tính với số lượng simulations. \\ \hline
+        \textbf{Hàm đánh giá} & Cần độ chính xác tuyệt đối (Domain knowledge). & Có thể hoạt động với hàm đánh giá yếu hoặc ngẫu nhiên. \\ \hline
+        \textbf{Tính ổn định} & Rất cao, không thay đổi kết quả nếu không thay đổi độ sâu. & Mang tính xác suất, có thể thay đổi sau mỗi lần chạy. \\ \hline
+        \textbf{Khả năng song song} & Khó triển khai hiệu quả (do phụ thuộc dữ liệu alpha/beta). & Rất dễ song song hóa (mỗi simulation độc lập). \\ \hline
+    \end{tabularx}
+\end{table}
+
+Trong dự án này, việc triển khai cả hai thuật toán giúp chúng ta hiểu rõ hơn về sự đánh đổi giữa tính chính xác tuyệt đối của Alpha-Beta và khả năng mở rộng không giới hạn của MCTS trong các tình huống mà tri thức con người (Heuristic) khó lòng bao quát hết.

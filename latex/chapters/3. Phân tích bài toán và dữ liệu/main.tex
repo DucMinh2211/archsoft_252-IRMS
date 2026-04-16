@@ -1,0 +1,59 @@
+Chương này trình bày chi tiết kiến trúc của IRMS thông qua phương pháp "Views and Beyond", tập trung vào ba góc nhìn cốt lõi: Module View, Component-and-Connector View và Allocation View.
+
+\section{Module View (Góc nhìn Module)}
+
+Góc nhìn này thể hiện cấu trúc mã nguồn và sự phân rã hệ thống thành các đơn vị chức năng độc lập.
+
+\subsection{Phân rã hệ thống (Decomposition)}
+Hệ thống được chia thành các lớp chức năng chính:
+\begin{itemize}
+    \item \textbf{Presentation Layer}: Chứa các UI module cho POS, KDS và Admin.
+    \item \textbf{API Gateway Layer}: Điều phối yêu cầu và xử lý xác thực.
+    \item \textbf{Business Logic Layer}: Chứa các domain service (Order, Kitchen, Payment, Inventory, Reporting).
+    \item \textbf{Data Access Layer}: Các Repository quản lý việc lưu trữ dữ liệu.
+\end{itemize}
+
+\subsection{Quan hệ sử dụng (Uses Relation)}
+\begin{itemize}
+    \item \textbf{Order Module} sử dụng \textbf{Menu Module} để lấy thông tin món ăn và \textbf{Table Module} để gán đơn vào bàn.
+    \item \textbf{Kitchen Module} nhận dữ liệu từ \textbf{Order Module} để hiển thị lên KDS.
+    \item \textbf{Payment Module} truy xuất thông tin từ \textbf{Order Module} để tính toán tổng tiền hóa đơn.
+\end{itemize}
+
+\section{Component-and-Connector View (Góc nhìn C\&C)}
+
+Góc nhìn này mô tả các thành phần thực thi (runtime) và cách chúng tương tác với nhau.
+
+\subsection{Các thành phần runtime chính}
+\begin{itemize}
+    \item \textbf{POS App}: Ứng dụng chạy trên máy tính bảng của nhân viên phục vụ.
+    \item \textbf{Kitchen Service}: Xử lý logic điều phối bếp và gửi thông báo qua WebSocket đến KDS App.
+    \item \textbf{Message Broker (RabbitMQ)}: Sử dụng để truyền tin bất đồng bộ giữa các service (ví dụ: OrderCreated event).
+    \item \textbf{Shared Database (PostgreSQL)}: Lưu trữ toàn bộ dữ liệu nghiệp vụ của hệ thống.
+\end{itemize}
+
+\subsection{Cơ chế tương tác (Connectors)}
+Hệ thống sử dụng \textbf{REST API} cho các tương tác đồng bộ và \textbf{Message Queue} cho các tương tác bất đồng bộ để tăng tính responsiveness cho giao diện người dùng.
+
+\section{Allocation View (Góc nhìn Phân bổ)}
+
+Thể hiện cách ánh xạ các thành phần phần mềm lên hạ tầng triển khai thực tế.
+
+\subsection{Kiến trúc triển khai (Deployment View)}
+Hệ thống được triển khai theo mô hình Containerization sử dụng \textbf{Docker}.
+\begin{itemize}
+    \item \textbf{Gateway Server}: Chạy NGINX và Auth Service để bảo vệ hệ thống.
+    \item \textbf{Application Servers}: Chạy các Docker container chứa các domain service.
+    \item \textbf{Data Server}: Chạy PostgreSQL Cluster và Redis để đảm bảo High Availability cho dữ liệu.
+\end{itemize}
+
+\subsection{Phân công phát triển (Work Assignment)}
+Dự án được chia cho các nhóm nhỏ phụ trách các phần độc lập:
+\begin{itemize}
+    \item \textbf{Frontend Team}: Phát triển các ứng dụng React và React Native (POS, KDS, Admin).
+    \item \textbf{Backend Team}: Phát triển các service Spring Boot và logic nghiệp vụ.
+    \item \textbf{Platform/DevOps Team}: Quản lý hạ tầng Docker, CI/CD và bảo mật.
+\end{itemize}
+
+\section{Kết chương}
+Thông qua việc mô tả hệ thống dưới nhiều góc nhìn khác nhau, kiến trúc IRMS đã được định hình rõ ràng, đảm bảo tính nhất quán giữa thiết kế mã nguồn, vận hành runtime và triển khai hạ tầng. Các biểu đồ UML chi tiết cho từng module sẽ được trình bày trong chương kế tiếp.

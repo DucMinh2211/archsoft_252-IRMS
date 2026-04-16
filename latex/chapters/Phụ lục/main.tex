@@ -1,0 +1,24 @@
+\chapter{Phụ Lục - Hồ Sơ Quyết Định Kiến Trúc (ADR)}
+
+Phần này trình bày các quyết định kiến trúc quan trọng (Architectural Decision Records) trong quá trình thiết kế hệ thống IRMS.
+
+\section{ADR-01: Lựa chọn Kiến trúc Service-Based}
+\textbf{Vấn đề:} Cần một kiến trúc đủ linh hoạt để thay đổi các module nghiệp vụ độc lập nhưng vẫn phải đảm bảo tính toàn vẹn dữ liệu giao dịch cao.
+\newline
+\textbf{Quyết định:} Chọn Service-Based Architecture.
+\newline
+\textbf{Lý do:} Cân bằng tốt nhất giữa khả năng bảo trì, chi phí vận hành và tính ổn định của dữ liệu thông qua cơ chế Shared Database.
+
+\section{ADR-02: Sử dụng Message Queue cho Điều phối Bếp}
+\textbf{Vấn đề:} Khi có quá nhiều đơn hàng cùng lúc, việc gọi API đồng bộ trực tiếp vào Kitchen Service có thể gây nghẽn và làm chậm phản hồi tại POS của nhân viên phục vụ.
+\newline
+\textbf{Quyết định:} Sử dụng RabbitMQ để truyền tin bất đồng bộ.
+\newline
+\textbf{Lý do:} Giúp hệ thống Order có thể phản hồi khách hàng ngay lập tức ("Đã nhận đơn") trong khi Kitchen Service xử lý việc đưa vào hàng đợi nấu một cách tuần tự phía sau.
+
+\section{ADR-03: Lựa chọn Database PostgreSQL}
+\textbf{Vấn đề:} Hệ thống cần lưu trữ dữ liệu quan hệ phức tạp và yêu cầu tính nhất quán (Consistency) cao.
+\newline
+\textbf{Quyết định:} Sử dụng PostgreSQL.
+\newline
+\textbf{Lý do:} Là hệ quản trị CSDL quan hệ mạnh mẽ, hỗ trợ tốt các giao dịch ACID và có khả năng mở rộng thông qua Replication cho các báo cáo cuối ngày.

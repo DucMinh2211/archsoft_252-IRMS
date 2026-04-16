@@ -1,0 +1,20 @@
+Chương này trình bày biểu đồ lớp (UML Class Diagram) cho các module cốt lõi của hệ thống IRMS, tuân thủ các nguyên lý SOLID.
+
+\section{Module Quản lý Đơn hàng (Order Module)}
+Đây là module trung tâm của hệ thống, quản lý vòng đời của một đơn hàng từ khi khởi tạo đến khi thanh toán xong. Các lớp chính bao gồm \texttt{Order}, \texttt{OrderItem} và \texttt{OrderService}.
+
+\section{Module Quy trình Bếp (Kitchen Module)}
+Module này chịu trách nhiệm điều phối việc chế biến món ăn. Lớp \texttt{KitchenService} phối hợp với \texttt{OrderPrioritizer} để sắp xếp thứ tự ưu tiên các món dựa trên thời gian chờ và loại món.
+
+\section{Module Thanh toán (Payment Module)}
+Quản lý các giao dịch tài chính. Lớp \texttt{PaymentProcessor} hỗ trợ nhiều chiến lược thanh toán khác nhau thông qua \textbf{Strategy Pattern}, cho phép dễ dàng tích hợp thêm các ví điện tử mới trong tương lai.
+
+\section{Áp dụng nguyên tắc SOLID trong thiết kế}
+\begin{itemize}
+    \item \textbf{Single Responsibility (SRP)}: Mỗi service chỉ đảm nhận một miền nghiệp vụ duy nhất (ví dụ: \texttt{InventoryService} chỉ quản lý kho).
+    \item \textbf{Open/Closed (OCP)}: Hệ thống cho phép thêm các phương thức thanh toán mới mà không cần sửa đổi mã nguồn hiện có của \texttt{PaymentService}.
+    \item \textbf{Dependency Inversion (DIP)}: Các lớp nghiệp vụ phụ thuộc vào abstraction (Interface) thay vì các implementation cụ thể của tầng Data Access.
+\end{itemize}
+
+\section{Kết chương}
+Các thiết kế chi tiết này là bản thiết kế kỹ thuật để đội ngũ lập trình có thể hiện thực hóa hệ thống một cách chính xác và đồng bộ. Chương tiếp theo sẽ tổng kết lại quá trình thực hiện và đưa ra hướng phát triển tương lai.

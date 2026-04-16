@@ -1,0 +1,131 @@
+\section{Cài đặt và Hiệu chỉnh tham số cho MCTS}
+
+Thuật toán Monte Carlo Tree Search yêu cầu việc cân bằng khéo léo các tham số để không bị sa đà vào các nhánh nước đi yếu.
+
+\subsection{Cấu hình hằng số thăm dò (C) và Power Mean}
+
+Giá trị $C$ trong công thức UCT quyết định mức độ AI ``khám phá'' các nước đi mới. Chúng tôi chọn $C = 1.4$ (xấp xỉ $\sqrt{2}$), kết hợp với hệ số $POWER = 3$ để tạo thành một công thức UCT nâng cao:
+
+\begin{equation}
+\text{power\_avg} = \operatorname{sign}(\text{avg}) \cdot |\text{avg}|^{\frac{1}{POWER}}
+\end{equation}
+
+\begin{equation}
+Q = 0.5 \cdot (\text{min\_result} + \text{power\_avg})
+\end{equation}
+
+\begin{equation}
+UCT = Q + C \cdot \sqrt{\frac{\ln(\text{parent.visits} + 1)}{\text{node.visits}}}
+\end{equation}
+
+Thay vì chỉ dùng giá trị trung bình thuần túy, chúng tôi áp dụng Power Mean với mũ $1/3$. Khi $POWER \rightarrow \infty$, Power Mean tiệm cận giá trị cực đại, khiến exploitation term hành xử giống minimax hơn. Ở $POWER = 3$, kết quả đạt được sự cân bằng giữa tính khai thác và tính thống kê của MCTS.\footnote{Coulom, R. (2006). Efficient Selectivity and Backup Operators in Monte-Carlo Tree Search. \textit{Computers and Games}, LNCS 4630, 72–83.}
+
+\begin{itemize}
+    \item Nếu $C$ quá lớn: AI sẽ dành quá nhiều thời gian cho các nước đi chưa được thăm dò, dẫn đến chất lượng nước đi kém.
+    \item Nếu $C$ quá nhỏ: AI chỉ tập trung vào một vài nhánh tốt đã biết, dễ bỏ qua các nước đi tiềm năng.
+\end{itemize}
+
+\subsection{Chiến lược Q-value Phòng thủ Rủi ro (Min+Mean Hybrid)}
+
+Chúng tôi tích hợp thêm giá trị tệ nhất $\text{min\_result}$ vào Q-value:
+
+\begin{equation}
+Q = 0.5 \cdot (\text{min\_result} + \text{power\_avg})
+\end{equation}
+
+Kỹ thuật này giúp giảm rủi ro: một nước đi có giá trị trung bình cao nhưng tồn tại khả năng thua ngay lập tức sẽ bị phạt, từ đó giúp AI chơi an toàn và ổn định hơn.
+
+\subsection{Số lượng Iterations và Cơ chế Thoát Sớm (MCTS-Solver)}
+
+Mỗi lượt đi, AI thực hiện tối đa $10{,}000$ vòng lặp (có thể điều chỉnh qua tham số \texttt{iterations}). Tuy nhiên, chúng tôi tích hợp cơ chế MCTS-Solver để dừng sớm:
+
+\begin{itemize}
+    \item Nếu tất cả các nhánh con dẫn đến thua chắc chắn $\rightarrow$ node được đánh dấu \textbf{proven loss} ($-\infty$).
+    \item Nếu tồn tại ít nhất một nhánh dẫn đến thắng chắc chắn $\rightarrow$ node được đánh dấu \textbf{proven win} ($+\infty$).
+    \item Khi root node đã được chứng minh, vòng lặp dừng ngay lập tức.
+\end{itemize}
+
+Kỹ thuật này giúp tiết kiệm tài nguyên và cho phép MCTS hành xử giống minimax trong các nhánh đã được giải quyết hoàn toàn.\footnote{Winands, M. H. M., Björnsson, Y., \& Saito, J. T. (2008). Monte-Carlo Tree Search Solver. \textit{Computers and Games}, LNCS 5131, 25–36.}
+
+\subsection{Kỹ thuật Smart Rollouts với epsilon \- Greedy Thích Nghi}
+
+Thay vì simulation ngẫu nhiên hoàn toàn, chúng tôi sử dụng chính sách $\varepsilon$-greedy:
+
+\begin{itemize}
+    \item Với xác suất $1 - \varepsilon$: chọn trong top-$k$ nước đi tốt nhất theo heuristic \texttt{evaluate\_move()}.
+    \item Với xác suất $\varepsilon$: chọn ngẫu nhiên để tránh hội tụ sớm.
+    \item Luôn ưu tiên các nước chiếu hết ngay lập tức.
+\end{itemize}
+
+Heuristic kết hợp:
+\begin{itemize}
+    \item PST (Piece-Square Table)
+    \item MVV-LVA (Most Valuable Victim -- Least Valuable Attacker)
+\end{itemize}
+
+Ngoài ra, độ sâu rollout được điều chỉnh theo giai đoạn ván đấu:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+Giai đoạn & Điều kiện & Độ sâu hiệu dụng & $\varepsilon$ \\
+\hline
+Trung cuộc & $> 16$ quân & \texttt{rollout\_depth} (mặc định 30) & 0.35 \\
+\hline
+Tàn cuộc & $\leq 16$ quân & $\max(\texttt{rollout\_depth}, 20)$ & 0.15 \\
+\hline
+\end{tabular}
+\end{table}
+
+Trong tàn cuộc, mỗi nước đi mang tính quyết định cao hơn, do đó độ sâu được tăng lên và $\varepsilon$ giảm xuống để ưu tiên các nước đi chất lượng hơn.
+\subsection{Động cơ áp dụng Hybrid MCTS - Alpha-Beta}
+Mặc dù đã tích hợp nhiều kỹ thuật nâng cao như Power Mean UCT, Min+Mean Hybrid, MCTS-Solver và Smart Rollouts, chúng tôi nhận thấy một điểm yếu cố hữu của MCTS vẫn còn tồn tại ở giai đoạn tàn cuộc: hiện tượng bão hòa giá trị UCT.
+
+Khi AI đã chiếm ưu thế vật chất rõ ràng, hàm đánh giá trả về các giá trị gần tương đương nhau cho hầu hết các nước đi hợp lệ. Điều này khiến UCT không còn phân biệt được nước đi tốt và nước đi xấu một cách rõ ràng, dẫn đến việc MCTS phân bổ iterations gần như đồng đều cho tất cả các nhánh — về bản chất là đi ngẫu nhiên — thay vì tập trung tìm đường chiếu hết. Kết quả là AI "biết mình đang thắng" nhưng không có động cơ để kết thúc ván đấu.
+
+Để giải quyết vấn đề này, nhóm quyết định áp dụng Hybrid MCTS Alpha-Beta: thay vì để MCTS tự xử lý toàn bộ không gian tìm kiếm, Alpha-Beta được tích hợp để thu hẹp không gian đó lại, chỉ giữ lại những nhánh có giá trị chiến thuật thực sự. Nhờ đó MCTS tập trung ngân sách iterations vào đúng những nhánh quan trọng, giúp AI hội tụ nhanh hơn và chơi quyết đoán hơn trong tàn cuộc.
+\section{Triển khai thuật toán Hybrid MCTS+AB}
+
+Bộ não AI thứ ba được triển khai là sự kết hợp (Hybrid) giữa Alpha-Beta và MCTS để tận dụng ưu điểm của cả hai trường phái.
+
+\subsection{Cơ chế Alpha-Beta Seeding}
+Thay vì khởi tạo cây MCTS với các nút có giá trị bằng không, chúng tôi sử dụng Alpha-Beta ở độ sâu $d=3$ để "quét" (screen) toàn bộ các nước đi hợp lệ. 
+
+\begin{algorithm}[H]
+\caption{Hybrid MCTS+AB (AB-MCTS)}
+\begin{algorithmic}[1]
+\Function{AB-MCTS}{board, iterations, top\_k}
+    \State $candidates \gets \Call{AlphaBetaScreen}{board, top\_k}$
+    \State $root \gets \text{Node}(board)$
+    \For{$(move, score) \in candidates$}
+        \State $child \gets \text{Expand}(root, move)$
+        \State $p \gets \text{Sigmoid}(score)$
+        \State $child.visits \gets \gamma$ \Comment{Virtual visits}
+        \State $child.value \gets \gamma \times p$ \Comment{Virtual wins}
+    \EndFor
+    \State $root.visits \gets \sum child.visits$
+    \State $root.value \gets \sum child.value$
+    
+    \For{$i = 1$ \textbf{to} $iterations$}
+        \State $node \gets \Call{Selection}{root}$
+        \State $node \gets \Call{Expansion}{node}$
+        \State $reward \gets \Call{Simulation}{node.board}$
+        \State \Call{Backpropagation}{node, reward}
+    \EndFor
+    \State \Return $\text{child of root with max visits}$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{itemize}
+    \item \textbf{Virtual Visits ($\gamma$):} Các nước đi được Alpha-Beta đánh giá cao sẽ được gán sẵn một số lượt truy cập ảo (mặc định $\gamma = 12$).
+    \item \textbf{Win Probability Seeding:} Điểm số centipawn từ Alpha-Beta được chuyển đổi sang xác suất thắng thông qua hàm Sigmoid ($P = 1 / (1 + e^{-cp/400})$). Các nút con được khởi tạo với giá trị tích lũy (Virtual Wins) tương ứng với xác suất này.
+\end{itemize}
+
+\subsection{Tối ưu hóa chiến thuật tàn cuộc (Endgame Tuning)}
+Trong tàn cuộc (khi tổng số quân cờ $\le 12$), AI tự động điều chỉnh các tham số:
+\begin{itemize}
+    \item Giảm tham số $K$ (Top-K Screening) xuống còn 4-6 để tập trung tài nguyên vào các nhánh dứt điểm.
+    \item Tăng tỷ lệ tham lam (Greedy Move) trong giai đoạn Simulation để mô phỏng các chuỗi chiếu bí chính xác hơn, thay vì đi ngẫu nhiên.
+\end{itemize}

@@ -1,0 +1,101 @@
+\section{Kết quả thử nghiệm thực tế và Benchmark Alpha-Beta}
+
+Để đánh giá chính xác sức mạnh của thuật toán Alpha-Beta Pruning đã triển khai, nhóm đã tiến hành benchmark thông qua việc cho AI thi đấu trực tiếp với các cấp độ máy tính trên nền tảng Chess.com. Các tham số chính được điều chỉnh bao gồm độ sâu tìm kiếm (Depth - D) và độ sâu của tìm kiếm tĩnh (Quiescence Search - Q).
+
+\subsection{Bảng kết quả Benchmark}
+
+Dưới đây là bảng tổng hợp kết quả thi đấu của engine sử dụng Alpha-Beta:
+
+\begin{table}[H]
+\centering
+\caption{Kết quả Benchmark thuật toán Alpha-Beta trên Chess.com}
+\label{tab:ab_benchmark}
+\begin{tabularx}{\textwidth}{|c|l|X|c|c|c|}
+\hline
+\textbf{STT} & \textbf{Cấu hình Bot} & \centering \textbf{Đối thủ (Elo)} & \textbf{Kết quả} & \textbf{Thời gian/Move (s)} & \textbf{Số nước} \\ \hline
+1  & D=1, Q=0 & Beginner (250)  & THUA & 0.013 & 35 \\ \hline
+2  & D=3, Q=0 & Beginner (250)  & THẮNG & 0.708 & 15 \\ \hline
+5  & D=3, Q=2 & Komodo (400)  & THẮNG & 0.901 & 18 \\ \hline
+9  & D=3, Q=0 & Intermediate (1000) & THẮNG & 0.556 & 46 \\ \hline
+11 & D=3, Q=2 & Intermediate (1300) & THẮNG & 0.593 & 59 \\ \hline
+12 & D=3, Q=2 & Komodo (1600) & THẮNG & 0.603 & 46 \\ \hline
+14 & D=3, Q=2 & Advanced (1800) & HÒA & 0.732 & 9 \\ \hline
+18 & D=4, Q=3 & Advanced (1800) & HÒA & 14.022 & 71 \\ \hline
+\end{tabularx}
+\end{table}
+
+\subsection{Đánh giá và phân tích kết quả}
+
+Dựa trên bảng kết quả và quá trình thực thi, chúng ta có thể rút ra các nhận định sau:
+
+\begin{itemize}
+    \item \textbf{Tầm quan trọng của Độ sâu (Depth):} Ở cấu hình D=1, AI dễ dàng bị đánh bại ngay cả bởi cấp độ thấp nhất do không thể nhìn xa hơn 1 nước đi (Horizon effect). Khi tăng lên D=3, sức mạnh của engine tăng vọt, có khả năng đánh bại các đối thủ ở mức Trung bình khá (1000-1300 Elo).
+    \item \textbf{Vai trò của Quiescence Search (Q):} Thực nghiệm cho thấy tìm kiếm tĩnh cực kỳ hiệu quả trong việc ổn định hàm đánh giá. So sánh giữa ván số 10 (D=3, Q=0 - Thua) và ván số 11 (D=3, Q=2 - Thắng) trước đối thủ 1300 Elo cho thấy Q giúp AI tránh được các đòn phối hợp ăn quân nguy hiểm mà tìm kiếm giới hạn độ sâu thường bỏ lỡ.
+    \item \textbf{Phong cách chơi "Kỷ luật":} Nhờ duyệt sâu đều khắp các nhánh, Alpha-Beta cực kỳ nhạy bén trong việc trừng phạt các sai lầm chiến thuật của đối thủ. AI luôn ưu tiên các nước đi phát triển quân chuẩn mực (Standard opening rules) và kiểm soát trung tâm dựa trên bảng điểm vị trí (PST).
+    \item \textbf{Đánh đổi giữa Hiệu năng và Độ sâu:} Khi nâng lên D=4 kết hợp Q=3, AI có thể cầm hòa được đối thủ ở mức Advanced (1800 Elo) trong một ván đấu dài 71 nước. Tuy nhiên, thời gian suy nghĩ trung bình tăng lên tới hơn 14 giây mỗi nước, gây áp lực lớn cho tài nguyên hệ thống và không phù hợp cho các ván đấu cờ chớp.
+\end{itemize}
+
+\subsection{Phân tích ván đấu tiêu biểu: Thắng Komodo Lv12 (1600 Elo)}
+
+Ván đấu số 12 (PGN bên dưới) là minh chứng rõ nhất cho khả năng tính toán chiến thuật của engine khi đối đầu với một đối thủ có trình độ cao.
+
+\begin{lstlisting}[frame=single, basicstyle=\ttfamily\scriptsize, breaklines=true]
+1. e4 Nf6 2. e5 Ne4 3. d3 Nc5 4. b4 Ne6 5. d4 d6 6. d5 dxe5 7. c3 Nf4 8. Bxf4 exf4 9. Ne2 e5 10. dxe6 Qxd1+ 11. Kxd1 Bd6 12. Nd4 Bxe6 13. Nd2 Ke7 14. Bc4 Nc6 15. Bxe6 fxe6 16. Re1 Nxd4 17. cxd4 Bxb4 18. Rb1 a5 19. Rc1 Kd6 20. Re4 Ba3 21. Rc3 Bb4 22. Rd3 c5 23. dxc5+ Kc6 24. Rxe6+ Kc7 25. Rd7+... 43. Rd1 Rb1 44. Rxb1 axb1=Q 45. g4 Qe4 46. Ka6 Qa4# 0-1
+\end{lstlisting}
+
+\textbf{Phân tích chiến thuật:}
+\begin{itemize}
+    \item \textbf{Giai đoạn Khai cuộc:} Engine (Black) xử lý linh hoạt Alekhine Defense. Thay vì rút lui hoàn toàn, nó liên tục điều phối mã (Ne4 -> Nc5 -> Ne6) để gây áp lực lên cấu trúc quân Trắng.
+    \item \textbf{Chiến thuật đơn giản hóa:} Tại nước thứ 10 (\texttt{Qxd1+}), engine chủ động đổi Hậu. Đây là một quyết định chiến thuật đặc trưng của thuật toán: giảm bớt độ phức tạp của thế trận để phát huy tối đa khả năng đánh giá tĩnh và tàn cuộc.
+    \item \textbf{Kỹ thuật kết thúc:} Engine thể hiện sự chính xác trong việc bảo vệ quân và tận dụng lợi thế về cấu trúc để phong cấp (\texttt{44... axb1=Q}) và kết thúc ván đấu bằng đòn chiếu bí mượt mà.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../../images/ai/ui-nice-move.jpg}
+        \caption{Phân tích nước đi hay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../../images/ai/ui-dramatic-draw.jpg}
+        \caption{Cầm hòa Advanced (1800)}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../../images/ai/ui-endgame.jpg}
+        \caption{Chiến thắng đối thủ mạnh}
+    \end{subfigure}
+    \caption{Hình ảnh minh họa kết quả thi đấu trên Chess.com}
+    \label{fig:chess_com_results}
+\end{figure}
+
+\section{Phân tích chiến thuật của MCTS}
+
+MCTS mang lại một phong cách chơi hoàn toàn khác biệt, mang tính "trực giác" và đôi khi gây bất ngờ.
+\subsection{Bảng kết quả Benchmark}
+
+Dưới đây là bảng tổng hợp kết quả thi đấu của engine sử dụng MCTS:
+
+\begin{table}[H]
+\centering
+\caption{Kết quả Benchmark thuật toán  MCTS trên Chess.com \& VS AlphaBeta}
+\label{tab:mcts_benchmark}
+\begin{tabularx}{\textwidth}{|c|l|l|X|X|c|}
+\hline
+\textbf{STT} & \textbf{Cấu hình Bot} & \centering \textbf{Đối thủ (Elo)} & \textbf{Kết quả} & \textbf{Thời gian/Move (s)} & \textbf{Số nước} \\ \hline
+1  & Iter=1000, Depth=5 & Beginner (250)  & HÒA (Hơn về chất cờ nhưng không dứt điểm ) & $\approx$ 30s & >50 \\ \hline
+2  & Iter=5000, Depth=5 & Intermediate (850)  &  Thua &  $\approx$ 45s & >50 \\ \hline
+22 & Iter=300, Depth=20 & AlphaBeta(D=2,QD=2) & THUA(20 trận) & $\approx$ 40s & $\approx$ 40 \\ \hline
+\end{tabularx}
+\end{table}
+
+\subsection{Nhận xét}
+Dựa trên bảng kết quả benchmark, có thể thấy engine MCTS đang bộc lộ rõ những giới hạn đặc trưng của một thuật toán chưa được tối ưu hóa toàn diện. Khi đối đầu với người chơi mới (Beginner 250 Elo), bot với thiết lập 1000 vòng lặp thể hiện được khả năng đánh giá thế trận khá tốt để giành ưu thế vật chất, nhưng lại vấp phải điểm yếu chí mạng của MCTS thuần túy: thiếu khả năng nhận diện mục tiêu cuối cùng (chiếu bí), dẫn đến việc vờn quanh vô nghĩa và kết thúc bằng những trận hòa dù ván đấu kéo dài hơn 50 nước. Khi nâng lên 5000 vòng lặp trước đối thủ trung bình (Intermediate 850 Elo), bot hoàn toàn bế tắc và nhận thất bại.
+
+Sự yếu kém về tính toán chiến thuật cục bộ càng bị khoét sâu khi đối đầu với engine truyền thống: bot thua trắng 20/20 trận trước thuật toán Alpha-Beta ở cấu hình rất cơ bản (Depth 2, Quiescence 2). Mức thiết lập 300 vòng lặp là quá nhỏ để MCTS có thể va chạm và "học" được các bẫy bắt quân trong cây tìm kiếm, khiến nó trở nên mù lòa trước các đòn chiến thuật nhanh. Nhìn chung, rào cản lớn nhất của engine này đang nằm ở hiệu suất thực thi; việc mất từ 30 đến 45 giây cho một nước đi với số lượng mô phỏng ít ỏi (dưới 5000) chứng tỏ tốc độ chạy rollout và sinh nước đi đang quá chậm, ngăn cản MCTS phát huy được thế mạnh đào sâu vào các nhánh cờ tiềm năng.
+
+
