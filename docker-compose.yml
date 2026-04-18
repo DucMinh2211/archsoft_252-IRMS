@@ -1,90 +1,21 @@
 version: '3.8'
 
 services:
-  # --- Gateway Layer ---
-  api-gateway:
-    build: ./gateway/api-gateway
-    ports:
-      - "3000:3000"
-    environment:
-      - AUTH_SERVICE_URL=http://auth-service:3001
-    depends_on:
-      - auth-service
-    networks:
-      - irms-network
-
-  auth-service:
-    build: ./gateway/auth-service
-    ports:
-      - "3001:3001"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres-db:5432/irms_auth
-    depends_on:
-      - postgres-db
-    networks:
-      - irms-network
-
-  # --- Core Domain Services (Java/Spring Boot) ---
-  order-service:
-    build: ./services/order-service
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/irms_order
-      - SPRING_REDIS_HOST=redis-cache
-      - SPRING_RABBITMQ_HOST=rabbitmq
-    depends_on:
-      - postgres-db
-      - redis-cache
-      - rabbitmq
-    networks:
-      - irms-network
-
+  # --- Core Domain Services ---
   menu-service:
-    build: ./services/menu-service
+    build:
+      context: .
+      dockerfile: services/menu-service/Dockerfile
     ports:
       - "8082:8082"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/irms_menu
+      - POSTGRES_USER=irms_user
+      - POSTGRES_PASSWORD=irms_pass
     depends_on:
-      - postgres-db
-    networks:
-      - irms-network
-
-  kitchen-service:
-    build: ./services/kitchen-service
-    ports:
-      - "8085:8085"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/irms_kitchen
-      - SPRING_RABBITMQ_HOST=rabbitmq
-    depends_on:
-      - postgres-db
-      - rabbitmq
-    networks:
-      - irms-network
-
-  # --- Support Services ---
-  notification-service:
-    build: ./services/notification-service
-    ports:
-      - "3002:3002"
-      - "3003:3003" # WebSocket
-    environment:
-      - RABBITMQ_HOST=rabbitmq
-    depends_on:
-      - rabbitmq
-    networks:
-      - irms-network
-
-  reporting-service:
-    build: ./services/reporting-service
-    ports:
-      - "5000:5000"
-    environment:
-      - DB_URL=postgresql://irms_user:irms_pass@postgres-db:5432/irms_order
-    depends_on:
-      - postgres-db
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
     networks:
       - irms-network
 
@@ -99,8 +30,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # In a real setup, we'd add an initialization script to create multiple DBs
       - ./infrastructure/docker/postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U irms_user -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - irms-network
 

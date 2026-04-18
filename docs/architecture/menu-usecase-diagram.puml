@@ -1,0 +1,43 @@
+@startuml IRMS_Menu_UseCase
+!theme plain
+left to right direction
+
+skinparam packageStyle rectangle
+
+actor "Quản lý (Manager)" as Manager
+actor "Nhân viên (Staff)" as Staff
+actor "Hệ thống Order" as OrderSvc <<System>>
+
+rectangle "Menu Service Subsystem" {
+    usecase "Xem thực đơn" as UC01
+    usecase "Thêm món mới" as UC02
+    usecase "Cập nhật thông tin món" as UC03
+    usecase "Cập nhật giá" as UC04
+    usecase "Đánh dấu món hết/có lại" as UC05
+    usecase "Quản lý danh mục" as UC06
+    usecase "Tìm kiếm món ăn" as UC07
+    usecase "Xác thực món ăn" as UC08
+    
+    ' Relationships for Manager
+    Manager -- UC01
+    Manager -- UC02
+    Manager -- UC03
+    Manager -- UC04
+    Manager -- UC05
+    Manager -- UC06
+    Manager -- UC07
+    
+    ' Relationships for Staff
+    Staff -- UC01
+    Staff -- UC07
+    
+    ' System interactions
+    UC08 -- OrderSvc
+    
+    ' Connections within Menu
+    UC02 ..> UC06 : <<include>>
+    UC03 <.. UC04 : <<extend>>
+    UC03 <.. UC05 : <<extend>>
+}
+
+@enduml

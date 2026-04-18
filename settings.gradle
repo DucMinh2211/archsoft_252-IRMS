@@ -1,0 +1,16 @@
+rootProject.name = 'irms-system'
+
+// Include Shared Library
+include 'shared:common-lib'
+
+// Include Java Services
+include 'services:order-service'
+include 'services:menu-service'
+include 'services:kitchen-service'
+include 'services:table-service'
+include 'services:payment-service'
+include 'services:inventory-service'
+include 'services:admin-service'
+
+// Node.js services don't need to be included in settings.gradle 
+// unless using a specific Gradle plugin for Node.
