@@ -11,9 +11,11 @@ Quản lý các giao dịch tài chính. Lớp \texttt{PaymentProcessor} hỗ tr
 
 \section{Áp dụng nguyên tắc SOLID trong thiết kế}
 \begin{itemize}
-    \item \textbf{Single Responsibility (SRP)}: Mỗi service chỉ đảm nhận một miền nghiệp vụ duy nhất (ví dụ: \texttt{InventoryService} chỉ quản lý kho).
-    \item \textbf{Open/Closed (OCP)}: Hệ thống cho phép thêm các phương thức thanh toán mới mà không cần sửa đổi mã nguồn hiện có của \texttt{PaymentService}.
-    \item \textbf{Dependency Inversion (DIP)}: Các lớp nghiệp vụ phụ thuộc vào abstraction (Interface) thay vì các implementation cụ thể của tầng Data Access.
+    \item \textbf{Single Responsibility (SRP)}: Mỗi service hoặc class chỉ đảm nhận một trách nhiệm duy nhất. Ví dụ: \texttt{InventoryService} chỉ tập trung vào quản lý kho, không tham gia vào logic thanh toán.
+    \item \textbf{Open/Closed (OCP)}: Hệ thống mở cho việc mở rộng nhưng đóng cho việc sửa đổi. Việc sử dụng \textbf{Strategy Pattern} trong \texttt{PaymentModule} cho phép thêm phương thức thanh toán mới mà không cần sửa mã nguồn hiện có.
+    \item \textbf{Liskov Substitution (LSP)}: Các lớp con hoặc implementation của Interface (như các loại \texttt{PaymentProvider} cụ thể) có thể thay thế hoàn toàn cho lớp cha/interface mà không làm thay đổi tính đúng đắn của hệ thống.
+    \item \textbf{Interface Segregation (ISP)}: Thay vì một Interface lớn, hệ thống chia nhỏ thành các Interface chuyên biệt. Ví dụ: Một service chỉ cần xem dữ liệu đơn hàng sẽ dùng \texttt{OrderReader}, thay vì phải phụ thuộc vào một interface có cả chức năng chỉnh sửa hay xóa.
+    \item \textbf{Dependency Inversion (DIP)}: Các module cấp cao không phụ thuộc vào module cấp thấp, cả hai đều phụ thuộc vào Abstraction. Các lớp nghiệp vụ phụ thuộc vào Interface thay vì các implementation cụ thể của tầng Database.
 \end{itemize}
 
 \section{Kết chương}
