@@ -1,4 +1,4 @@
-rootProject.name = 'irms-system'
+rootProject.name = 'archsoft_252-IRMS'
 
 // Include Shared Library
 include 'shared:common-lib'
