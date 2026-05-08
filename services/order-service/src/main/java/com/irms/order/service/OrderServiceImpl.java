@@ -16,6 +16,7 @@ import com.irms.order.exception.OrderNotFoundException;
 import com.irms.order.infrastructure.client.KitchenServiceClient;
 import com.irms.order.infrastructure.client.MenuServiceClient;
 import com.irms.order.infrastructure.client.TableServiceClient;
+import com.irms.order.infrastructure.sse.SseBroadcaster;
 import com.irms.order.mapper.OrderMapper;
 import com.irms.order.dto.KitchenTicketRequestDTO;
 import com.irms.order.dto.KitchenTicketItemRequestDTO;
@@ -27,6 +28,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,19 +48,25 @@ public class OrderServiceImpl implements OrderService {
     private final MenuServiceClient menuServiceClient;
     private final KitchenServiceClient kitchenServiceClient;
     private final OrderStateValidator stateValidator;
+    private final SseBroadcaster sseBroadcaster;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public OrderServiceImpl(OrderRepository orderRepository,
                             OrderMapper orderMapper,
                             TableServiceClient tableServiceClient,
                             MenuServiceClient menuServiceClient,
                             KitchenServiceClient kitchenServiceClient,
-                            OrderStateValidator stateValidator) {
+                            OrderStateValidator stateValidator,
+                            SseBroadcaster sseBroadcaster) {
         this.orderRepository = orderRepository;
         this.orderMapper = orderMapper;
         this.tableServiceClient = tableServiceClient;
         this.menuServiceClient = menuServiceClient;
         this.kitchenServiceClient = kitchenServiceClient;
         this.stateValidator = stateValidator;
+        this.sseBroadcaster = sseBroadcaster;
     }
 
     @Override
@@ -94,7 +103,9 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmount);
         
         Order savedOrder = orderRepository.save(order);
-        return orderMapper.toDto(savedOrder);
+        OrderResponseDTO dto = orderMapper.toDto(savedOrder);
+        sseBroadcaster.broadcast("order.created", dto);
+        return dto;
     }
 
     @Override
@@ -159,8 +170,10 @@ public class OrderServiceImpl implements OrderService {
         if (oldStatus == OrderStatus.DRAFT && newStatus == OrderStatus.PENDING) {
             sendOrderToKitchen(order);
         }
-        
-        return orderMapper.toDto(orderRepository.save(order));
+
+        OrderResponseDTO dto = orderMapper.toDto(orderRepository.save(order));
+        sseBroadcaster.broadcast("order.status", dto);
+        return dto;
     }
 
     @Override
@@ -168,12 +181,13 @@ public class OrderServiceImpl implements OrderService {
     public void deleteOrder(UUID id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException("Order not found with id: " + id));
-        
+
         if (order.getStatus() != OrderStatus.DRAFT && order.getStatus() != OrderStatus.PENDING) {
             throw new BusinessValidationException("Cannot delete order that is already being processed or completed.");
         }
-        
+
         orderRepository.delete(order);
+        sseBroadcaster.broadcast("order.deleted", id);
     }
 
     @Override
@@ -181,17 +195,22 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponseDTO addOrderItem(UUID orderId, OrderItemRequestDTO itemDTO) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException("Order not found with id: " + orderId));
-                
+
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED) {
             throw new BusinessValidationException("Cannot add items to a completed or cancelled order.");
         }
 
         OrderItem orderItem = buildOrderItem(itemDTO);
         order.addItem(orderItem);
-        
+        // Persist explicit để tránh TransientObjectException khi merge order managed.
+        entityManager.persist(orderItem);
+
         recalculateTotal(order);
-        
-        return orderMapper.toDto(orderRepository.save(order));
+        entityManager.flush();
+
+        OrderResponseDTO dto = orderMapper.toDto(order);
+        sseBroadcaster.broadcast("order.itemAdded", dto);
+        return dto;
     }
 
     private OrderItem buildOrderItem(OrderItemRequestDTO itemDTO) {

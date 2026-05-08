@@ -1,5 +1,6 @@
 package com.irms.table.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.irms.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class RestaurantTable extends BaseEntity {
 
     @Column(name = "table_number", nullable = false, unique = true, length = 20)

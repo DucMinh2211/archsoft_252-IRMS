@@ -7,6 +7,7 @@ import com.irms.table.domain.WaitlistStatus;
 import com.irms.table.dto.SeatGuestRequest;
 import com.irms.table.dto.TableRequest;
 import com.irms.table.dto.TableStatusUpdateRequest;
+import com.irms.table.infrastructure.sse.SseBroadcaster;
 import com.irms.table.repository.ReservationRepository;
 import com.irms.table.repository.RestaurantTableRepository;
 import com.irms.table.repository.WaitlistRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -26,6 +28,7 @@ public class TableService {
     private final RestaurantTableRepository tableRepository;
     private final ReservationRepository reservationRepository;
     private final WaitlistRepository waitlistRepository;
+    private final SseBroadcaster sseBroadcaster;
 
     // ────────────────────────────────────────────────────────────
     // Truy vấn
@@ -80,7 +83,9 @@ public class TableService {
                 .status(TableStatus.AVAILABLE)
                 .build();
 
-        return tableRepository.save(table);
+        RestaurantTable saved = tableRepository.save(table);
+        sseBroadcaster.broadcast("table.created", Map.of("id", saved.getId(), "tableNumber", saved.getTableNumber()));
+        return saved;
     }
 
     /**
@@ -92,14 +97,15 @@ public class TableService {
         table.setStatus(request.getStatus());
         table.setCurrentOrderId(request.getCurrentOrderId());
 
-        // Ghi nhận thời điểm khách ngồi
         if (request.getStatus() == TableStatus.OCCUPIED) {
             table.setSeatedAt(LocalDateTime.now());
         } else if (request.getStatus() == TableStatus.AVAILABLE || request.getStatus() == TableStatus.CLEANING) {
             table.setSeatedAt(null);
         }
 
-        return tableRepository.save(table);
+        RestaurantTable saved = tableRepository.save(table);
+        sseBroadcaster.broadcast("table.status", Map.of("id", saved.getId(), "tableNumber", saved.getTableNumber(), "status", saved.getStatus().name()));
+        return saved;
     }
 
     /**
@@ -131,6 +137,7 @@ public class TableService {
             });
         }
 
+        sseBroadcaster.broadcast("table.seated", Map.of("id", table.getId(), "tableNumber", table.getTableNumber(), "source", request.getSource()));
         return table;
     }
 
@@ -162,6 +169,7 @@ public class TableService {
         fromTable.setSeatedAt(null);
         tableRepository.save(fromTable);
 
+        sseBroadcaster.broadcast("table.moved", Map.of("from", fromTableId, "to", toTableId));
         return toTable;
     }
 }

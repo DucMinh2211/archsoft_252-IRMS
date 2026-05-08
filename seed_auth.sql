@@ -1,0 +1,73 @@
+-- =============== AUTH (irms_auth) ===============
+\c irms_auth
+
+-- Roles
+INSERT INTO roles (id, name, description, created_at, updated_at) VALUES
+  ('11111111-0000-0000-0000-000000000001','ADMIN','Quản trị hệ thống', NOW(), NOW()),
+  ('11111111-0000-0000-0000-000000000002','MANAGER','Quản lý nhà hàng', NOW(), NOW()),
+  ('11111111-0000-0000-0000-000000000003','WAITER','Phục vụ', NOW(), NOW()),
+  ('11111111-0000-0000-0000-000000000004','CHEF','Đầu bếp', NOW(), NOW()),
+  ('11111111-0000-0000-0000-000000000005','CASHIER','Thu ngân', NOW(), NOW())
+ON CONFLICT DO NOTHING;
+
+-- Permissions
+INSERT INTO permissions (id, name, created_at, updated_at) VALUES
+  ('22222222-0000-0000-0000-000000000001','MENU_MANAGE',     NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000002','ORDER_MANAGE',    NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000003','TABLE_MANAGE',    NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000004','KITCHEN_MANAGE',  NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000005','PAYMENT_MANAGE',  NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000006','USER_MANAGE',     NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000007','ORDER_VIEW',      NOW(), NOW()),
+  ('22222222-0000-0000-0000-000000000008','KITCHEN_VIEW',    NOW(), NOW())
+ON CONFLICT DO NOTHING;
+
+-- Role -> Permissions
+-- ADMIN: tất cả
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '11111111-0000-0000-0000-000000000001', id FROM permissions
+ON CONFLICT DO NOTHING;
+
+-- MANAGER: tất cả trừ USER_MANAGE
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '11111111-0000-0000-0000-000000000002', id FROM permissions WHERE name <> 'USER_MANAGE'
+ON CONFLICT DO NOTHING;
+
+-- WAITER: ORDER_MANAGE, TABLE_MANAGE, ORDER_VIEW, KITCHEN_VIEW
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '11111111-0000-0000-0000-000000000003', id FROM permissions WHERE name IN ('ORDER_MANAGE','TABLE_MANAGE','ORDER_VIEW','KITCHEN_VIEW')
+ON CONFLICT DO NOTHING;
+
+-- CHEF: KITCHEN_MANAGE, KITCHEN_VIEW, ORDER_VIEW
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '11111111-0000-0000-0000-000000000004', id FROM permissions WHERE name IN ('KITCHEN_MANAGE','KITCHEN_VIEW','ORDER_VIEW')
+ON CONFLICT DO NOTHING;
+
+-- CASHIER: PAYMENT_MANAGE, ORDER_VIEW
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '11111111-0000-0000-0000-000000000005', id FROM permissions WHERE name IN ('PAYMENT_MANAGE','ORDER_VIEW')
+ON CONFLICT DO NOTHING;
+
+-- Users (password = "123456" cho tất cả - cùng hash với admin đã register)
+INSERT INTO users (id, username, email, password, is_active, created_at, updated_at) VALUES
+  ('33333333-0000-0000-0000-000000000002','manager1','manager@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000003','waiter1','waiter1@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000004','waiter2','waiter2@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000005','chef1','chef1@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000006','cashier1','cashier@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW())
+ON CONFLICT DO NOTHING;
+
+-- User -> Roles
+INSERT INTO user_roles (user_id, role_id) VALUES
+  ('4a447405-a88a-4491-8a52-db6685ac17fa','11111111-0000-0000-0000-000000000001'), -- admin -> ADMIN
+  ('33333333-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000002'), -- manager1 -> MANAGER
+  ('33333333-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000003'), -- waiter1 -> WAITER
+  ('33333333-0000-0000-0000-000000000004','11111111-0000-0000-0000-000000000003'), -- waiter2 -> WAITER
+  ('33333333-0000-0000-0000-000000000005','11111111-0000-0000-0000-000000000004'), -- chef1 -> CHEF
+  ('33333333-0000-0000-0000-000000000006','11111111-0000-0000-0000-000000000005')  -- cashier1 -> CASHIER
+ON CONFLICT DO NOTHING;
+
+-- Audit log mẫu
+INSERT INTO audit_logs (id, action, entity_name, entity_id, performed_by, details, created_at, updated_at) VALUES
+  (gen_random_uuid(),'CREATE','User','4a447405-a88a-4491-8a52-db6685ac17fa','SYSTEM','Đăng ký tài khoản admin', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+  (gen_random_uuid(),'CREATE','User','33333333-0000-0000-0000-000000000002','admin','Tạo tài khoản manager1', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day');

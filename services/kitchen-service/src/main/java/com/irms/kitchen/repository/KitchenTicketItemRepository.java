@@ -13,4 +13,5 @@ import java.util.UUID;
 public interface KitchenTicketItemRepository extends JpaRepository<KitchenTicketItem, UUID> {
     List<KitchenTicketItem> findByStationAndStatusInOrderByCreatedAtAsc(StationType station, List<TicketItemStatus> statuses);
     List<KitchenTicketItem> findByTicketId(UUID ticketId);
+    List<KitchenTicketItem> findByTicket_OrderIdAndMenuItemId(UUID orderId, UUID menuItemId);
 }

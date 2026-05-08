@@ -12,13 +12,24 @@ public class OrderStateValidator {
             return;
         }
 
+        // Cho phép kết thúc đơn (COMPLETED hoặc CANCELLED) từ bất kỳ trạng thái không terminal.
+        // Phù hợp luồng POS thực: thanh toán có thể xảy ra bất cứ lúc nào (takeaway, cash trước, v.v.)
+        if (currentStatus == OrderStatus.COMPLETED || currentStatus == OrderStatus.CANCELLED) {
+            throw new InvalidStateTransitionException(
+                    String.format("Cannot transition order from terminal state %s", currentStatus)
+            );
+        }
+        if (newStatus == OrderStatus.COMPLETED || newStatus == OrderStatus.CANCELLED) {
+            return;
+        }
+
         boolean isValid = switch (currentStatus) {
-            case DRAFT -> newStatus == OrderStatus.PENDING || newStatus == OrderStatus.CANCELLED;
-            case PENDING -> newStatus == OrderStatus.COOKING || newStatus == OrderStatus.CANCELLED;
-            case COOKING -> newStatus == OrderStatus.READY_TO_SERVE; // Cannot cancel directly from COOKING
+            case DRAFT -> newStatus == OrderStatus.PENDING;
+            case PENDING -> newStatus == OrderStatus.COOKING;
+            case COOKING -> newStatus == OrderStatus.READY_TO_SERVE;
             case READY_TO_SERVE -> newStatus == OrderStatus.SERVED;
-            case SERVED -> newStatus == OrderStatus.COMPLETED;
-            case COMPLETED, CANCELLED -> false; // Terminal states
+            case SERVED -> false; // Từ SERVED chỉ đi tiếp đến COMPLETED (đã handle ở trên)
+            default -> false;
         };
 
         if (!isValid) {

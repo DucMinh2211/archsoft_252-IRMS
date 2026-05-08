@@ -7,6 +7,8 @@ import com.irms.kitchen.domain.TicketItemStatus;
 import com.irms.kitchen.domain.TicketStatus;
 import com.irms.kitchen.dto.CreateTicketRequest;
 import com.irms.kitchen.exception.ResourceNotFoundException;
+import com.irms.kitchen.infrastructure.client.OrderServiceClient;
+import com.irms.kitchen.infrastructure.sse.SseBroadcaster;
 import com.irms.kitchen.repository.KitchenTicketItemRepository;
 import com.irms.kitchen.repository.KitchenTicketRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,8 @@ public class KitchenServiceImpl implements KitchenService {
     private final KitchenTicketItemRepository itemRepository;
     private final StationManager stationManager;
     private final OrderPrioritizer orderPrioritizer;
+    private final OrderServiceClient orderServiceClient;
+    private final SseBroadcaster sseBroadcaster;
 
     @Override
     @Transactional
@@ -56,7 +60,9 @@ public class KitchenServiceImpl implements KitchenService {
             ticket.addItem(item);
         });
 
-        return ticketRepository.save(ticket);
+        KitchenTicket saved = ticketRepository.save(ticket);
+        sseBroadcaster.broadcast("ticket.created", java.util.Map.of("id", saved.getId(), "orderId", saved.getOrderId()));
+        return saved;
     }
 
     @Override
@@ -77,17 +83,64 @@ public class KitchenServiceImpl implements KitchenService {
     @Override
     @Transactional
     public void updateItemStatus(UUID itemId, TicketItemStatus newStatus) {
-        log.info("Updating status for item ID: {} to {}", itemId, newStatus);
+        updateItemStatusInternal(itemId, newStatus, true);
+    }
+
+    /**
+     * Sync từ order-service: tìm tất cả kitchen items thuộc orderId+menuItemId, update status.
+     * Không propagate ngược lại để tránh loop.
+     */
+    @Override
+    @Transactional
+    public int syncStatusByMenuItem(UUID orderId, UUID menuItemId, TicketItemStatus newStatus) {
+        List<KitchenTicketItem> items = itemRepository.findByTicket_OrderIdAndMenuItemId(orderId, menuItemId);
+        int updated = 0;
+        for (KitchenTicketItem it : items) {
+            if (it.getStatus() == newStatus) continue;
+            if (it.getStatus() == TicketItemStatus.CANCELLED) continue;
+            it.setStatus(newStatus);
+            itemRepository.save(it);
+            checkAndUpdateTicketStatus(it.getTicket());
+            updated++;
+        }
+        if (updated > 0) {
+            sseBroadcaster.broadcast("ticket.itemStatus.sync",
+                    java.util.Map.of("orderId", orderId, "menuItemId", menuItemId, "status", newStatus.name(), "updated", updated));
+        }
+        return updated;
+    }
+
+    private void updateItemStatusInternal(UUID itemId, TicketItemStatus newStatus, boolean propagateToOrder) {
+        log.info("Updating status for item ID: {} to {} (propagate={})", itemId, newStatus, propagateToOrder);
         KitchenTicketItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kitchen ticket item not found with id: " + itemId));
-                
+
         item.setStatus(newStatus);
         itemRepository.save(item);
-        
-        // Auto-update ticket status based on items
+
         checkAndUpdateTicketStatus(item.getTicket());
-        
-        // TODO: Publish event to Message Queue (e.g., OrderReady if ticket completed)
+
+        if (propagateToOrder) {
+            UUID orderId = item.getTicket().getOrderId();
+            if (orderId != null) {
+                String orderItemStatus = mapToOrderItemStatus(newStatus);
+                if (orderItemStatus != null) {
+                    orderServiceClient.syncItemStatus(orderId, item.getMenuItemId(), orderItemStatus);
+                }
+            }
+        }
+
+        sseBroadcaster.broadcast("ticket.itemStatus",
+                java.util.Map.of("itemId", itemId, "ticketId", item.getTicket().getId(), "status", newStatus.name()));
+    }
+
+    private String mapToOrderItemStatus(TicketItemStatus s) {
+        return switch (s) {
+            case PENDING   -> "PENDING";
+            case COOKING   -> "COOKING";
+            case READY     -> "READY_TO_SERVE";
+            case CANCELLED -> "CANCELLED";
+        };
     }
 
     @Override

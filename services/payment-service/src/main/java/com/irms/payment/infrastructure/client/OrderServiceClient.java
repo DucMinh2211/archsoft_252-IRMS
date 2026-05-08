@@ -21,7 +21,7 @@ public class OrderServiceClient {
 
     public void updateOrderStatusToCompleted(UUID orderId) {
         try {
-            String url = orderServiceUrl + "/api/v1/orders/" + orderId + "/status?newStatus=COMPLETED";
+            String url = orderServiceUrl + "/api/v1/orders/" + orderId + "/status?status=COMPLETED";
             restTemplate.put(url, null);
         } catch (RestClientException e) {
             throw new RuntimeException("Failed to notify order-service of completion: " + e.getMessage());

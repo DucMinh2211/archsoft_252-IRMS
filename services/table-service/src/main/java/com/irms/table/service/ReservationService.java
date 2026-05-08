@@ -5,6 +5,7 @@ import com.irms.table.domain.ReservationStatus;
 import com.irms.table.domain.RestaurantTable;
 import com.irms.table.domain.TableStatus;
 import com.irms.table.dto.ReservationRequest;
+import com.irms.table.infrastructure.sse.SseBroadcaster;
 import com.irms.table.repository.ReservationRepository;
 import com.irms.table.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -22,6 +24,7 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final RestaurantTableRepository tableRepository;
+    private final SseBroadcaster sseBroadcaster;
 
     // ────────────────────────────────────────────────────────────
     // Truy vấn
@@ -84,7 +87,9 @@ public class ReservationService {
                 .status(ReservationStatus.PENDING)
                 .build();
 
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        return saved;
     }
 
     /**
@@ -125,7 +130,9 @@ public class ReservationService {
         table.setStatus(TableStatus.RESERVED);
         tableRepository.save(table);
 
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        return saved;
     }
 
     /**
@@ -147,7 +154,9 @@ public class ReservationService {
         }
 
         reservation.setStatus(ReservationStatus.CANCELLED);
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        return saved;
     }
 
     /**
@@ -169,6 +178,8 @@ public class ReservationService {
         }
 
         reservation.setStatus(ReservationStatus.NO_SHOW);
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        return saved;
     }
 }

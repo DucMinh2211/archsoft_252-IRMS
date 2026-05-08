@@ -5,6 +5,7 @@ import com.irms.table.domain.TableStatus;
 import com.irms.table.domain.WaitlistEntry;
 import com.irms.table.domain.WaitlistStatus;
 import com.irms.table.dto.WaitlistRequest;
+import com.irms.table.infrastructure.sse.SseBroadcaster;
 import com.irms.table.repository.RestaurantTableRepository;
 import com.irms.table.repository.WaitlistRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -21,11 +23,11 @@ import java.util.UUID;
 @SuppressWarnings("null")
 public class WaitlistService {
 
-    // Thời gian ước tính mỗi bàn còn phục vụ (phút) — giá trị mặc định đơn giản
     private static final int ESTIMATED_MINUTES_PER_TABLE = 20;
 
     private final WaitlistRepository waitlistRepository;
     private final RestaurantTableRepository tableRepository;
+    private final SseBroadcaster sseBroadcaster;
 
     // ────────────────────────────────────────────────────────────
     // Truy vấn
@@ -78,7 +80,9 @@ public class WaitlistService {
                 .queuePosition((int) currentWaiting + 1)
                 .build();
 
-        return waitlistRepository.save(entry);
+        WaitlistEntry savedW = waitlistRepository.save(entry);
+        sseBroadcaster.broadcast("waitlist.changed", Map.of("id", savedW.getId(), "status", savedW.getStatus().name()));
+        return savedW;
     }
 
     // ────────────────────────────────────────────────────────────
@@ -99,7 +103,9 @@ public class WaitlistService {
 
         entry.setStatus(WaitlistStatus.NOTIFIED);
         entry.setNotifiedAt(LocalDateTime.now());
-        return waitlistRepository.save(entry);
+        WaitlistEntry savedW = waitlistRepository.save(entry);
+        sseBroadcaster.broadcast("waitlist.changed", Map.of("id", savedW.getId(), "status", savedW.getStatus().name()));
+        return savedW;
     }
 
     /**
@@ -143,8 +149,8 @@ public class WaitlistService {
         WaitlistEntry entry = getEntryById(id);
         entry.setStatus(WaitlistStatus.LEFT);
         WaitlistEntry saved = waitlistRepository.save(entry);
+        sseBroadcaster.broadcast("waitlist.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
 
-        // Tính lại thứ tự và thời gian chờ
         recalculateWaitTimes();
         return saved;
     }
