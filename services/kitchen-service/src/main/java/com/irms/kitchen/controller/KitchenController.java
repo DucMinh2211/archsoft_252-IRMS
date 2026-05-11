@@ -4,7 +4,7 @@ import com.irms.kitchen.domain.KitchenTicket;
 import com.irms.kitchen.dto.CreateTicketRequest;
 import com.irms.kitchen.dto.KitchenTicketDto;
 import com.irms.kitchen.mapper.KitchenTicketMapper;
-import com.irms.kitchen.service.KitchenService;
+import com.irms.kitchen.service.KitchenTicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,7 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class KitchenController {
 
-    private final KitchenService kitchenService;
+    private final KitchenTicketService kitchenService;
     private final KitchenTicketMapper kitchenTicketMapper;
 
     @PostMapping

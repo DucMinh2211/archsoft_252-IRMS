@@ -5,7 +5,6 @@ import com.irms.order.domain.OrderItem;
 import com.irms.order.domain.OrderItemStatus;
 import com.irms.order.domain.OrderStatus;
 import com.irms.order.domain.OrderType;
-import com.irms.order.dto.MenuItemDTO;
 import com.irms.order.dto.OrderItemRequestDTO;
 import com.irms.order.dto.OrderRequestDTO;
 import com.irms.order.dto.OrderResponseDTO;
@@ -13,13 +12,8 @@ import com.irms.order.dto.TableResponseDTO;
 import com.irms.order.exception.BusinessValidationException;
 import com.irms.order.exception.OrderAlreadyCancelledException;
 import com.irms.order.exception.OrderNotFoundException;
-import com.irms.order.infrastructure.client.KitchenServiceClient;
-import com.irms.order.infrastructure.client.MenuServiceClient;
 import com.irms.order.infrastructure.client.TableServiceClient;
-import com.irms.order.infrastructure.sse.SseBroadcaster;
 import com.irms.order.mapper.OrderMapper;
-import com.irms.order.dto.KitchenTicketRequestDTO;
-import com.irms.order.dto.KitchenTicketItemRequestDTO;
 import com.irms.order.repository.OrderRepository;
 import com.irms.order.validator.OrderStateValidator;
 import org.springframework.data.domain.Page;
@@ -31,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.Predicate;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,10 +38,11 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
     private final TableServiceClient tableServiceClient;
-    private final MenuServiceClient menuServiceClient;
-    private final KitchenServiceClient kitchenServiceClient;
+    private final OrderItemFactory orderItemFactory;
+    private final OrderTotalCalculator orderTotalCalculator;
+    private final KitchenTicketDispatcher kitchenTicketDispatcher;
     private final OrderStateValidator stateValidator;
-    private final SseBroadcaster sseBroadcaster;
+    private final OrderEventPublisher eventPublisher;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -56,17 +50,19 @@ public class OrderServiceImpl implements OrderService {
     public OrderServiceImpl(OrderRepository orderRepository,
                             OrderMapper orderMapper,
                             TableServiceClient tableServiceClient,
-                            MenuServiceClient menuServiceClient,
-                            KitchenServiceClient kitchenServiceClient,
-                            OrderStateValidator stateValidator,
-                            SseBroadcaster sseBroadcaster) {
+                             OrderItemFactory orderItemFactory,
+                             OrderTotalCalculator orderTotalCalculator,
+                             KitchenTicketDispatcher kitchenTicketDispatcher,
+                             OrderStateValidator stateValidator,
+                             OrderEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderMapper = orderMapper;
         this.tableServiceClient = tableServiceClient;
-        this.menuServiceClient = menuServiceClient;
-        this.kitchenServiceClient = kitchenServiceClient;
+        this.orderItemFactory = orderItemFactory;
+        this.orderTotalCalculator = orderTotalCalculator;
+        this.kitchenTicketDispatcher = kitchenTicketDispatcher;
         this.stateValidator = stateValidator;
-        this.sseBroadcaster = sseBroadcaster;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -90,21 +86,18 @@ public class OrderServiceImpl implements OrderService {
         order.setSpecialNote(requestDTO.getSpecialNote());
         order.setStatus(OrderStatus.DRAFT);
         
-        BigDecimal totalAmount = BigDecimal.ZERO;
-
         if (requestDTO.getItems() != null && !requestDTO.getItems().isEmpty()) {
             for (OrderItemRequestDTO itemDTO : requestDTO.getItems()) {
-                OrderItem orderItem = buildOrderItem(itemDTO);
+                OrderItem orderItem = orderItemFactory.create(itemDTO);
                 order.addItem(orderItem);
-                totalAmount = totalAmount.add(orderItem.getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity())));
             }
         }
-        
-        order.setTotalAmount(totalAmount);
+
+        orderTotalCalculator.recalculate(order);
         
         Order savedOrder = orderRepository.save(order);
         OrderResponseDTO dto = orderMapper.toDto(savedOrder);
-        sseBroadcaster.broadcast("order.created", dto);
+        eventPublisher.broadcast("order.created", dto);
         return dto;
     }
 
@@ -168,11 +161,11 @@ public class OrderServiceImpl implements OrderService {
         }
         
         if (oldStatus == OrderStatus.DRAFT && newStatus == OrderStatus.PENDING) {
-            sendOrderToKitchen(order);
+            kitchenTicketDispatcher.dispatch(order);
         }
 
         OrderResponseDTO dto = orderMapper.toDto(orderRepository.save(order));
-        sseBroadcaster.broadcast("order.status", dto);
+        eventPublisher.broadcast("order.status", dto);
         return dto;
     }
 
@@ -187,7 +180,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         orderRepository.delete(order);
-        sseBroadcaster.broadcast("order.deleted", id);
+        eventPublisher.broadcast("order.deleted", id);
     }
 
     @Override
@@ -200,56 +193,16 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessValidationException("Cannot add items to a completed or cancelled order.");
         }
 
-        OrderItem orderItem = buildOrderItem(itemDTO);
+        OrderItem orderItem = orderItemFactory.create(itemDTO);
         order.addItem(orderItem);
         // Persist explicit để tránh TransientObjectException khi merge order managed.
         entityManager.persist(orderItem);
 
-        recalculateTotal(order);
+        orderTotalCalculator.recalculate(order);
         entityManager.flush();
 
         OrderResponseDTO dto = orderMapper.toDto(order);
-        sseBroadcaster.broadcast("order.itemAdded", dto);
+        eventPublisher.broadcast("order.itemAdded", dto);
         return dto;
-    }
-
-    private OrderItem buildOrderItem(OrderItemRequestDTO itemDTO) {
-        MenuItemDTO menuItem = menuServiceClient.getMenuItem(itemDTO.getMenuItemId());
-        
-        OrderItem orderItem = new OrderItem();
-        orderItem.setMenuItemId(menuItem.getId());
-        orderItem.setMenuItemName(menuItem.getName());
-        orderItem.setQuantity(itemDTO.getQuantity());
-        orderItem.setPrice(menuItem.getPrice());
-        orderItem.setNote(itemDTO.getNote());
-        orderItem.setStatus(OrderItemStatus.PENDING);
-        
-        return orderItem;
-    }
-    
-    private void recalculateTotal(Order order) {
-        BigDecimal totalAmount = order.getItems().stream()
-                .filter(item -> item.getStatus() != OrderItemStatus.CANCELLED)
-                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        order.setTotalAmount(totalAmount);
-    }
-    
-    private void sendOrderToKitchen(Order order) {
-        KitchenTicketRequestDTO ticketRequest = KitchenTicketRequestDTO.builder()
-                .orderId(order.getId())
-                .tableId(order.getTableId())
-                .items(order.getItems().stream()
-                        .filter(item -> item.getStatus() != OrderItemStatus.CANCELLED)
-                        .map(item -> KitchenTicketItemRequestDTO.builder()
-                                .menuItemId(item.getMenuItemId())
-                                .menuItemName(item.getMenuItemName())
-                                .quantity(item.getQuantity())
-                                .notes(item.getNote())
-                                .build())
-                        .collect(Collectors.toList()))
-                .build();
-                
-        kitchenServiceClient.createTicket(ticketRequest);
     }
 }

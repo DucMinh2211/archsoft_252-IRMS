@@ -1,5 +1,6 @@
 package com.irms.order.infrastructure.sse;
 
+import com.irms.order.service.OrderEventPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 @Slf4j
 @Component
-public class SseBroadcaster {
+public class SseBroadcaster implements OrderEventPublisher {
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -34,6 +35,7 @@ public class SseBroadcaster {
         return emitter;
     }
 
+    @Override
     public void broadcast(String eventName, Object payload) {
         for (SseEmitter e : emitters) {
             try {

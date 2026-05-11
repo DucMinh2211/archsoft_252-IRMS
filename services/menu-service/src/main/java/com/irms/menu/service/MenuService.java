@@ -12,16 +12,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
-public class MenuService {
+public class MenuService implements MenuItemQueryService, MenuItemCommandService {
 
     private final MenuItemRepository menuItemRepository;
     private final CategoryRepository categoryRepository;
+    private final MenuItemFactory menuItemFactory;
+    private final MenuItemUpdater menuItemUpdater;
 
+    @Override
     public List<MenuItem> getAllMenuItems() {
         return menuItemRepository.findAll();
     }
@@ -30,58 +32,44 @@ public class MenuService {
         return categoryRepository.findAll();
     }
 
+    @Override
     @Transactional
     public MenuItem createMenuItem(MenuItemRequest request) {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
 
-        MenuItem menuItem = MenuItem.builder()
-                .name(request.getName())
-                .description(request.getDescription())
-                .price(request.getPrice())
-                .category(category)
-                .preparationTime(request.getPreparationTime())
-                .imageUrl(request.getImageUrl())
-                .allergens(request.getAllergens() != null ? request.getAllergens() : new ArrayList<>())
-                .isAvailable(request.getIsAvailable() != null ? request.getIsAvailable() : true)
-                .build();
-
+        MenuItem menuItem = menuItemFactory.create(request, category);
         return menuItemRepository.save(menuItem);
     }
 
+    @Override
     public MenuItem getMenuItemById(UUID id) {
         return menuItemRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Menu item not found with id: " + id));
     }
 
+    @Override
     public List<MenuItem> getItemsByCategory(UUID categoryId) {
         return menuItemRepository.findByCategoryId(categoryId);
     }
 
+    @Override
     @Transactional
     public MenuItem updateMenuItem(UUID id, MenuItemRequest request) {
         MenuItem menuItem = getMenuItemById(id);
+        Category category = null;
         
         if (request.getCategoryId() != null && !request.getCategoryId().equals(menuItem.getCategory().getId())) {
-            Category category = categoryRepository.findById(request.getCategoryId())
+            category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
-            menuItem.setCategory(category);
         }
-        
-        if (request.getName() != null) menuItem.setName(request.getName());
-        if (request.getDescription() != null) menuItem.setDescription(request.getDescription());
-        if (request.getPrice() != null) menuItem.setPrice(request.getPrice());
-        if (request.getPreparationTime() != null) menuItem.setPreparationTime(request.getPreparationTime());
-        if (request.getImageUrl() != null) menuItem.setImageUrl(request.getImageUrl());
-        if (request.getIsAvailable() != null) menuItem.setIsAvailable(request.getIsAvailable());
-        if (request.getAllergens() != null) {
-            menuItem.getAllergens().clear();
-            menuItem.getAllergens().addAll(request.getAllergens());
-        }
+
+        menuItemUpdater.update(menuItem, request, category);
         
         return menuItemRepository.save(menuItem);
     }
 
+    @Override
     @Transactional
     public void deleteMenuItem(UUID id) {
         MenuItem menuItem = getMenuItemById(id);

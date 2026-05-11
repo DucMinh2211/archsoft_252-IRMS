@@ -2,7 +2,6 @@ package com.irms.admin.service;
 
 import com.irms.admin.domain.User;
 import com.irms.admin.dto.RegisterRequest;
-import com.irms.admin.repository.AuditLogRepository;
 import com.irms.admin.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +35,7 @@ class AuthServiceImplTest {
     private AuthenticationManager authenticationManager;
     
     @Mock
-    private AuditLogRepository auditLogRepository;
+    private AuditLogger auditLogger;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -73,7 +72,7 @@ class AuthServiceImplTest {
             user.getUsername().equals("newuser") && 
             user.getPassword().equals("encodedPassword")
         ));
-        verify(auditLogRepository).save(any());
+        verify(auditLogger).logAction(eq("REGISTER_SUCCESS"), eq("User"), any(), eq("newuser"), eq("New user registered"));
     }
 
     @Test

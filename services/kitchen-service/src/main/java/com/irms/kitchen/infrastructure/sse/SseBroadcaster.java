@@ -1,5 +1,6 @@
 package com.irms.kitchen.infrastructure.sse;
 
+import com.irms.kitchen.service.KitchenEventPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -12,7 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Component
-public class SseBroadcaster {
+public class SseBroadcaster implements KitchenEventPublisher {
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -30,6 +31,7 @@ public class SseBroadcaster {
         return emitter;
     }
 
+    @Override
     public void broadcast(String eventName, Object payload) {
         for (SseEmitter e : emitters) {
             try {

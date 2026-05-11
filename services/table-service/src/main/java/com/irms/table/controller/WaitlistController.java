@@ -1,8 +1,9 @@
 package com.irms.table.controller;
 
-import com.irms.table.domain.WaitlistEntry;
 import com.irms.table.dto.WaitlistRequest;
-import com.irms.table.service.WaitlistService;
+import com.irms.table.dto.WaitlistEntryResponse;
+import com.irms.table.mapper.TableResponseMapper;
+import com.irms.table.service.WaitlistManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,30 +18,31 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WaitlistController {
 
-    private final WaitlistService waitlistService;
+    private final WaitlistManagementService waitlistService;
+    private final TableResponseMapper tableResponseMapper;
 
     /**
      * UC09 / UC12 — Lấy danh sách khách đang chờ (WAITING + NOTIFIED).
      */
     @GetMapping
-    public ResponseEntity<List<WaitlistEntry>> getActiveWaitlist() {
-        return ResponseEntity.ok(waitlistService.getActiveWaitlist());
+    public ResponseEntity<List<WaitlistEntryResponse>> getActiveWaitlist() {
+        return ResponseEntity.ok(tableResponseMapper.toWaitlistEntryResponses(waitlistService.getActiveWaitlist()));
     }
 
     /**
      * UC09 — Thêm khách vào danh sách chờ.
      */
     @PostMapping
-    public ResponseEntity<WaitlistEntry> addToWaitlist(@Valid @RequestBody WaitlistRequest request) {
-        return new ResponseEntity<>(waitlistService.addToWaitlist(request), HttpStatus.CREATED);
+    public ResponseEntity<WaitlistEntryResponse> addToWaitlist(@Valid @RequestBody WaitlistRequest request) {
+        return new ResponseEntity<>(tableResponseMapper.toWaitlistEntryResponse(waitlistService.addToWaitlist(request)), HttpStatus.CREATED);
     }
 
     /**
      * UC11 — Thông báo cho khách bàn đã sẵn sàng.
      */
     @PutMapping("/{id}/notify")
-    public ResponseEntity<WaitlistEntry> notifyGuest(@PathVariable UUID id) {
-        return ResponseEntity.ok(waitlistService.notifyGuest(id));
+    public ResponseEntity<WaitlistEntryResponse> notifyGuest(@PathVariable UUID id) {
+        return ResponseEntity.ok(tableResponseMapper.toWaitlistEntryResponse(waitlistService.notifyGuest(id)));
     }
 
     /**
@@ -48,18 +50,18 @@ public class WaitlistController {
      * Query param: ?tableId=UUID
      */
     @PutMapping("/{id}/seat")
-    public ResponseEntity<WaitlistEntry> seatFromWaitlist(
+    public ResponseEntity<WaitlistEntryResponse> seatFromWaitlist(
             @PathVariable UUID id,
             @RequestParam UUID tableId) {
-        return ResponseEntity.ok(waitlistService.seatFromWaitlist(id, tableId));
+        return ResponseEntity.ok(tableResponseMapper.toWaitlistEntryResponse(waitlistService.seatFromWaitlist(id, tableId)));
     }
 
     /**
      * UC09 — Xóa khách khỏi danh sách chờ (khách từ chối chờ).
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<WaitlistEntry> removeFromWaitlist(@PathVariable UUID id) {
-        return ResponseEntity.ok(waitlistService.removeFromWaitlist(id));
+    public ResponseEntity<WaitlistEntryResponse> removeFromWaitlist(@PathVariable UUID id) {
+        return ResponseEntity.ok(tableResponseMapper.toWaitlistEntryResponse(waitlistService.removeFromWaitlist(id)));
     }
 
     /**

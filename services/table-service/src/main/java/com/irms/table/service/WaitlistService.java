@@ -5,7 +5,7 @@ import com.irms.table.domain.TableStatus;
 import com.irms.table.domain.WaitlistEntry;
 import com.irms.table.domain.WaitlistStatus;
 import com.irms.table.dto.WaitlistRequest;
-import com.irms.table.infrastructure.sse.SseBroadcaster;
+import com.irms.table.exception.TableResourceNotFoundException;
 import com.irms.table.repository.RestaurantTableRepository;
 import com.irms.table.repository.WaitlistRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -25,48 +24,48 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
-public class WaitlistService {
-
-    private static final int AVG_DINE_TIME_MINUTES = 60;
-    private static final int OVERDUE_THRESHOLD_MINUTES = 60;
-    private static final int OVERDUE_PENALTY_PER_TABLE = 10;
-    private static final int MIN_WAIT_MINUTES = 5;
+public class WaitlistService implements WaitlistManagementService {
 
     private final WaitlistRepository waitlistRepository;
     private final RestaurantTableRepository tableRepository;
-    private final SseBroadcaster sseBroadcaster;
+    private final WaitTimeEstimator waitTimeEstimator;
+    private final TableSeatingPolicy tableSeatingPolicy;
+    private final WaitlistStatusPolicy waitlistStatusPolicy;
+    private final TableEventPublisher eventPublisher;
 
     // ────────────────────────────────────────────────────────────
     // Truy vấn
     // ────────────────────────────────────────────────────────────
 
+    @Override
     public List<WaitlistEntry> getActiveWaitlist() {
         return waitlistRepository.findByStatusInOrderByCreatedAtAsc(
                 Arrays.asList(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED));
     }
 
+    @Override
     public List<WaitlistEntry> getAllWaitlistEntries() {
         return waitlistRepository.findAll();
     }
 
+    @Override
     public WaitlistEntry getEntryById(UUID id) {
         return waitlistRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách trong danh sách chờ với id: " + id));
+                .orElseThrow(() -> new TableResourceNotFoundException("Không tìm thấy khách trong danh sách chờ với id: " + id));
     }
 
     // ────────────────────────────────────────────────────────────
     // Thêm vào danh sách chờ
     // ────────────────────────────────────────────────────────────
 
+    @Override
     @Transactional
     public WaitlistEntry addToWaitlist(WaitlistRequest request) {
         List<WaitlistEntry> currentWaiting = waitlistRepository.findByStatusOrderByCreatedAtAsc(WaitlistStatus.WAITING);
         int position = currentWaiting.size(); // Vị trí mới (0-indexed)
 
         List<RestaurantTable> occupiedTables = tableRepository.findByStatus(TableStatus.OCCUPIED);
-        
-        long overdueCount = countOverdueTables(occupiedTables);
-        int estimatedWait = calculateLinearWait(position, occupiedTables.size(), (int) overdueCount);
+        int estimatedWait = waitTimeEstimator.estimateWaitMinutes(position, occupiedTables);
 
         WaitlistEntry entry = WaitlistEntry.builder()
                 .customerName(request.getCustomerName())
@@ -78,7 +77,7 @@ public class WaitlistService {
                 .build();
 
         WaitlistEntry savedW = waitlistRepository.save(entry);
-        sseBroadcaster.broadcast("waitlist.changed", Map.of("id", savedW.getId(), "status", savedW.getStatus().name()));
+        eventPublisher.broadcast("waitlist.changed", Map.of("id", savedW.getId(), "status", savedW.getStatus().name()));
         return savedW;
     }
 
@@ -86,32 +85,28 @@ public class WaitlistService {
     // Cập nhật trạng thái
     // ────────────────────────────────────────────────────────────
 
+    @Override
     @Transactional
     public WaitlistEntry notifyGuest(UUID id) {
         WaitlistEntry entry = getEntryById(id);
-        if (entry.getStatus() != WaitlistStatus.WAITING) {
-            throw new RuntimeException("Chỉ có thể thông báo cho khách đang ở trạng thái WAITING");
-        }
+        waitlistStatusPolicy.validateCanNotify(entry);
         entry.setStatus(WaitlistStatus.NOTIFIED);
         entry.setNotifiedAt(LocalDateTime.now());
         WaitlistEntry savedW = waitlistRepository.save(entry);
-        sseBroadcaster.broadcast("waitlist.changed", Map.of("id", savedW.getId(), "status", savedW.getStatus().name()));
+        eventPublisher.broadcast("waitlist.changed", Map.of("id", savedW.getId(), "status", savedW.getStatus().name()));
         return savedW;
     }
 
+    @Override
     @Transactional
     public WaitlistEntry seatFromWaitlist(UUID id, UUID tableId) {
         WaitlistEntry entry = getEntryById(id);
-        if (entry.getStatus() == WaitlistStatus.SEATED || entry.getStatus() == WaitlistStatus.LEFT) {
-            throw new RuntimeException("Khách này đã được xếp bàn hoặc đã rời đi");
-        }
+        waitlistStatusPolicy.validateCanSeat(entry);
 
         RestaurantTable table = tableRepository.findById(tableId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy bàn với id: " + tableId));
+                .orElseThrow(() -> new TableResourceNotFoundException("Không tìm thấy bàn với id: " + tableId));
 
-        if (table.getStatus() != TableStatus.AVAILABLE) {
-            throw new RuntimeException("Bàn " + table.getTableNumber() + " không còn trống");
-        }
+        tableSeatingPolicy.validateAvailable(table);
 
         table.setStatus(TableStatus.OCCUPIED);
         table.setSeatedAt(LocalDateTime.now());
@@ -124,12 +119,13 @@ public class WaitlistService {
         return saved;
     }
 
+    @Override
     @Transactional
     public WaitlistEntry removeFromWaitlist(UUID id) {
         WaitlistEntry entry = getEntryById(id);
         entry.setStatus(WaitlistStatus.LEFT);
         WaitlistEntry saved = waitlistRepository.save(entry);
-        sseBroadcaster.broadcast("waitlist.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        eventPublisher.broadcast("waitlist.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
         recalculateWaitTimes();
         return saved;
     }
@@ -142,9 +138,10 @@ public class WaitlistService {
     @Transactional
     public void recalculateScheduled() {
         recalculateWaitTimes();
-        sseBroadcaster.broadcast("waitlist.recalculated", Map.of("timestamp", LocalDateTime.now()));
+        eventPublisher.broadcast("waitlist.recalculated", Map.of("timestamp", LocalDateTime.now()));
     }
 
+    @Override
     @Transactional
     public void recalculateWaitTimes() {
         List<WaitlistEntry> waitingEntries = waitlistRepository
@@ -153,48 +150,14 @@ public class WaitlistService {
         if (waitingEntries.isEmpty()) return;
 
         List<RestaurantTable> occupiedTables = tableRepository.findByStatus(TableStatus.OCCUPIED);
-        long overdueCount = countOverdueTables(occupiedTables);
+        long overdueCount = waitTimeEstimator.countOverdueTables(occupiedTables);
 
         for (int i = 0; i < waitingEntries.size(); i++) {
             WaitlistEntry entry = waitingEntries.get(i);
             entry.setQueuePosition(i + 1);
-            entry.setEstimatedWaitMinutes(calculateLinearWait(i, occupiedTables.size(), (int) overdueCount));
+            entry.setEstimatedWaitMinutes(waitTimeEstimator.estimateWaitMinutes(i, occupiedTables.size(), (int) overdueCount));
         }
 
         waitlistRepository.saveAll(waitingEntries);
-    }
-
-    // ────────────────────────────────────────────────────────────
-    // Helper
-    // ────────────────────────────────────────────────────────────
-
-    private long countOverdueTables(List<RestaurantTable> tables) {
-        return tables.stream()
-                .filter(t -> t.getSeatedAt() != null)
-                .filter(t -> {
-                    long minutes = Duration.between(t.getSeatedAt(), LocalDateTime.now()).toMinutes();
-                    return minutes > OVERDUE_THRESHOLD_MINUTES;
-                })
-                .count();
-    }
-
-    /**
-     * Thuật toán tính ETA tuyến tính:
-     * ETA = (Thời gian ăn TB / Số bàn bận) * (Vị trí + 1) + (Số bàn trễ * Phạt)
-     */
-    private int calculateLinearWait(int position, int occupiedCount, int overdueCount) {
-        if (occupiedCount == 0) return MIN_WAIT_MINUTES;
-
-        // Tốc độ quay vòng: cứ X phút có 1 bàn trống
-        double turnoverRateMinutes = (double) AVG_DINE_TIME_MINUTES / Math.max(occupiedCount, 1);
-        
-        // Thời gian chờ gốc dựa trên vị trí
-        double baseWait = turnoverRateMinutes * (position + 1);
-        
-        // Cộng dồn trễ hệ thống
-        int penalty = overdueCount * OVERDUE_PENALTY_PER_TABLE;
-        
-        int total = (int) Math.round(baseWait + penalty);
-        return Math.max(total, MIN_WAIT_MINUTES);
     }
 }

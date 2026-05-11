@@ -6,9 +6,9 @@ import com.irms.kitchen.domain.StationType;
 import com.irms.kitchen.domain.TicketItemStatus;
 import com.irms.kitchen.domain.TicketStatus;
 import com.irms.kitchen.dto.CreateTicketRequest;
+import com.irms.kitchen.exception.KitchenStateTransitionException;
 import com.irms.kitchen.exception.ResourceNotFoundException;
-import com.irms.kitchen.infrastructure.client.OrderServiceClient;
-import com.irms.kitchen.infrastructure.sse.SseBroadcaster;
+import com.irms.kitchen.infrastructure.client.OrderItemStatusSyncClient;
 import com.irms.kitchen.repository.KitchenTicketItemRepository;
 import com.irms.kitchen.repository.KitchenTicketRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +30,10 @@ public class KitchenServiceImpl implements KitchenService {
     private final KitchenTicketItemRepository itemRepository;
     private final StationManager stationManager;
     private final OrderPrioritizer orderPrioritizer;
-    private final OrderServiceClient orderServiceClient;
-    private final SseBroadcaster sseBroadcaster;
+    private final OrderItemStatusSyncClient orderServiceClient;
+    private final OrderItemStatusMapper orderItemStatusMapper;
+    private final KitchenTicketStatusPolicy ticketStatusPolicy;
+    private final KitchenEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -61,7 +63,7 @@ public class KitchenServiceImpl implements KitchenService {
         });
 
         KitchenTicket saved = ticketRepository.save(ticket);
-        sseBroadcaster.broadcast("ticket.created", java.util.Map.of("id", saved.getId(), "orderId", saved.getOrderId()));
+        eventPublisher.broadcast("ticket.created", java.util.Map.of("id", saved.getId(), "orderId", saved.getOrderId()));
         return saved;
     }
 
@@ -107,7 +109,7 @@ public class KitchenServiceImpl implements KitchenService {
             updated++;
         }
         if (updated > 0) {
-            sseBroadcaster.broadcast("ticket.itemStatus.sync",
+            eventPublisher.broadcast("ticket.itemStatus.sync",
                     java.util.Map.of("orderId", orderId, "menuItemId", menuItemId, "status", newStatus.name(), "updated", updated));
         }
         return updated;
@@ -120,7 +122,7 @@ public class KitchenServiceImpl implements KitchenService {
 
         // Không cho phép Hoàn tác (COOKING) nếu món đã được phục vụ (SERVED)
         if (item.getStatus() == TicketItemStatus.SERVED && newStatus != TicketItemStatus.CANCELLED) {
-            throw new IllegalStateException("Không thể hoàn tác món đã được phục vụ xong.");
+            throw new KitchenStateTransitionException("Không thể hoàn tác món đã được phục vụ xong.");
         }
 
         item.setStatus(newStatus);
@@ -138,18 +140,12 @@ public class KitchenServiceImpl implements KitchenService {
             }
         }
 
-        sseBroadcaster.broadcast("ticket.itemStatus",
+        eventPublisher.broadcast("ticket.itemStatus",
                 java.util.Map.of("itemId", itemId, "ticketId", item.getTicket().getId(), "status", newStatus.name()));
     }
 
-    private String mapToOrderItemStatus(TicketItemStatus s) {
-        return switch (s) {
-            case PENDING   -> "PENDING";
-            case COOKING   -> "COOKING";
-            case READY     -> "READY_TO_SERVE";
-            case SERVED    -> "SERVED";
-            case CANCELLED -> "CANCELLED";
-        };
+    private String mapToOrderItemStatus(TicketItemStatus status) {
+        return orderItemStatusMapper.toOrderItemStatus(status);
     }
 
     @Override
@@ -173,19 +169,15 @@ public class KitchenServiceImpl implements KitchenService {
     }
     
     private void checkAndUpdateTicketStatus(KitchenTicket ticket) {
-        List<KitchenTicketItem> items = ticket.getItems();
-        
-        boolean allServed = items.stream().allMatch(i -> i.getStatus() == TicketItemStatus.SERVED || i.getStatus() == TicketItemStatus.CANCELLED);
-        boolean allReadyOrServed = items.stream().allMatch(i -> i.getStatus() == TicketItemStatus.READY || i.getStatus() == TicketItemStatus.SERVED || i.getStatus() == TicketItemStatus.CANCELLED);
-        boolean anyCooking = items.stream().anyMatch(i -> i.getStatus() == TicketItemStatus.COOKING);
-        
-        if (allServed) {
+        TicketStatus resolvedStatus = ticketStatusPolicy.resolveStatus(ticket);
+
+        if (resolvedStatus == TicketStatus.SERVED) {
             ticket.setStatus(TicketStatus.SERVED);
             log.info("Ticket {} is now SERVED", ticket.getId());
-        } else if (allReadyOrServed) {
+        } else if (resolvedStatus == TicketStatus.READY_TO_SERVE) {
             ticket.setStatus(TicketStatus.READY_TO_SERVE);
             log.info("Ticket {} is now READY_TO_SERVE", ticket.getId());
-        } else if (anyCooking && ticket.getStatus() == TicketStatus.PENDING) {
+        } else if (resolvedStatus == TicketStatus.PREPARING && ticket.getStatus() == TicketStatus.PENDING) {
             ticket.setStatus(TicketStatus.PREPARING);
             log.info("Ticket {} is now PREPARING", ticket.getId());
         }

@@ -9,7 +9,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
-public class KitchenServiceClient {
+public class KitchenServiceClient implements KitchenTicketClient {
 
     private final RestTemplate restTemplate;
     private final String kitchenServiceUrl;
@@ -20,6 +20,7 @@ public class KitchenServiceClient {
         this.kitchenServiceUrl = kitchenServiceUrl;
     }
 
+    @Override
     public void createTicket(KitchenTicketRequestDTO request) {
         try {
             String url = kitchenServiceUrl + "/api/v1/kitchen/tickets";

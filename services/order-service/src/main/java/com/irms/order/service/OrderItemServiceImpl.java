@@ -6,17 +6,14 @@ import com.irms.order.domain.OrderItemStatus;
 import com.irms.order.dto.OrderItemRequestDTO;
 import com.irms.order.dto.OrderItemResponseDTO;
 import com.irms.order.exception.BusinessValidationException;
-import com.irms.order.exception.InvalidStateTransitionException;
 import com.irms.order.exception.OrderNotFoundException;
-import com.irms.order.infrastructure.client.KitchenSyncClient;
-import com.irms.order.infrastructure.sse.SseBroadcaster;
+import com.irms.order.infrastructure.client.KitchenItemStatusSyncClient;
 import com.irms.order.mapper.OrderMapper;
 import com.irms.order.repository.OrderItemRepository;
 import com.irms.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,19 +24,25 @@ public class OrderItemServiceImpl implements OrderItemService {
     private final OrderItemRepository orderItemRepository;
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
-    private final KitchenSyncClient kitchenSyncClient;
-    private final SseBroadcaster sseBroadcaster;
+    private final KitchenItemStatusSyncClient kitchenSyncClient;
+    private final OrderTotalCalculator orderTotalCalculator;
+    private final OrderItemStatusTransitionPolicy itemStatusTransitionPolicy;
+    private final OrderEventPublisher eventPublisher;
 
     public OrderItemServiceImpl(OrderItemRepository orderItemRepository,
                                 OrderRepository orderRepository,
                                 OrderMapper orderMapper,
-                                KitchenSyncClient kitchenSyncClient,
-                                SseBroadcaster sseBroadcaster) {
+                                 KitchenItemStatusSyncClient kitchenSyncClient,
+                                 OrderTotalCalculator orderTotalCalculator,
+                                 OrderItemStatusTransitionPolicy itemStatusTransitionPolicy,
+                                 OrderEventPublisher eventPublisher) {
         this.orderItemRepository = orderItemRepository;
         this.orderRepository = orderRepository;
         this.orderMapper = orderMapper;
         this.kitchenSyncClient = kitchenSyncClient;
-        this.sseBroadcaster = sseBroadcaster;
+        this.orderTotalCalculator = orderTotalCalculator;
+        this.itemStatusTransitionPolicy = itemStatusTransitionPolicy;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -89,7 +92,7 @@ public class OrderItemServiceImpl implements OrderItemService {
             recalculateOrderTotal(items.get(0).getOrder());
         }
         if (updated > 0) {
-            sseBroadcaster.broadcast("order.itemStatus.sync",
+            eventPublisher.broadcast("order.itemStatus.sync",
                     java.util.Map.of("orderId", orderId, "menuItemId", menuItemId, "status", newStatus.name(), "updated", updated));
         }
         return updated;
@@ -100,23 +103,7 @@ public class OrderItemServiceImpl implements OrderItemService {
                 .orElseThrow(() -> new OrderNotFoundException("Order Item not found"));
 
         OrderItemStatus currentStatus = item.getStatus();
-
-        // Cho phép * → CANCELLED từ bất kỳ trạng thái không terminal (waiter có thể hủy bất cứ lúc nào)
-        if (currentStatus == OrderItemStatus.SERVED || currentStatus == OrderItemStatus.CANCELLED) {
-            throw new InvalidStateTransitionException("Cannot transition item from terminal state " + currentStatus);
-        }
-        if (newStatus != OrderItemStatus.CANCELLED) {
-            // Forward-only: chỉ cho phép tiến tới
-            boolean isValid = switch (currentStatus) {
-                case PENDING -> newStatus == OrderItemStatus.COOKING || newStatus == OrderItemStatus.READY_TO_SERVE || newStatus == OrderItemStatus.SERVED;
-                case COOKING -> newStatus == OrderItemStatus.READY_TO_SERVE || newStatus == OrderItemStatus.SERVED;
-                case READY_TO_SERVE -> newStatus == OrderItemStatus.SERVED;
-                default -> false;
-            };
-            if (!isValid) {
-                throw new InvalidStateTransitionException("Cannot transition item from " + currentStatus + " to " + newStatus);
-            }
-        }
+        itemStatusTransitionPolicy.validateTransition(currentStatus, newStatus);
 
         item.setStatus(newStatus);
         OrderItem savedItem = orderItemRepository.save(item);
@@ -131,7 +118,7 @@ public class OrderItemServiceImpl implements OrderItemService {
         }
 
         OrderItemResponseDTO dto = orderMapper.toDto(savedItem);
-        sseBroadcaster.broadcast("order.itemStatus", dto);
+        eventPublisher.broadcast("order.itemStatus", dto);
         return dto;
     }
 
@@ -153,11 +140,7 @@ public class OrderItemServiceImpl implements OrderItemService {
     }
 
     private void recalculateOrderTotal(Order order) {
-        BigDecimal totalAmount = order.getItems().stream()
-                .filter(i -> i.getStatus() != OrderItemStatus.CANCELLED)
-                .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        order.setTotalAmount(totalAmount);
+        orderTotalCalculator.recalculate(order);
         orderRepository.save(order);
     }
 }

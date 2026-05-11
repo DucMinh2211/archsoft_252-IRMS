@@ -1,7 +1,7 @@
 package com.irms.kitchen.controller;
 
 import com.irms.kitchen.domain.TicketItemStatus;
-import com.irms.kitchen.service.KitchenService;
+import com.irms.kitchen.service.KitchenStatusSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InternalSyncController {
 
-    private final KitchenService kitchenService;
+    private final KitchenStatusSyncService kitchenService;
 
     @PutMapping("/orders/{orderId}/menu/{menuItemId}/status")
     public ResponseEntity<Map<String, Integer>> syncStatusByMenuItem(
