@@ -1,6 +1,6 @@
 package com.irms.kitchen.controller;
 
-import com.irms.kitchen.infrastructure.sse.SseBroadcaster;
+import com.irms.kitchen.service.KitchenEventStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,10 +13,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 public class EventsController {
 
-    private final SseBroadcaster broadcaster;
+    private final KitchenEventStream eventStream;
 
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
-        return broadcaster.register();
+        return eventStream.register();
     }
 }

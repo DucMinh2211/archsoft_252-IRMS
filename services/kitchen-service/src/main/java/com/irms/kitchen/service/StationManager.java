@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-public class StationManager {
+public class StationManager implements StationAssignmentPolicy {
 
     private static final List<StationRule> STATION_RULES = List.of(
             new StationRule(StationType.GRILL, List.of("grill", "steak", "burger", "bbq")),
@@ -21,6 +21,7 @@ public class StationManager {
      * In a real application, this might query the menu-service or a local cache
      * to get category information for the menu item.
      */
+    @Override
     public StationType determineStation(UUID menuItemId, String menuItemName) {
         if (menuItemName == null) return StationType.GENERAL;
         

@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,7 +23,8 @@ public class TableService implements TableManagementService {
 
     private final RestaurantTableRepository tableRepository;
     private final TableSeatingPolicy tableSeatingPolicy;
-    private final List<SeatingSourceHandler> seatingSourceHandlers;
+    private final TableStateTransitionService tableStateTransitionService;
+    private final SeatingSourceUpdateService seatingSourceUpdateService;
     private final TableEventPublisher eventPublisher;
 
     // ────────────────────────────────────────────────────────────
@@ -97,14 +97,7 @@ public class TableService implements TableManagementService {
     @Transactional
     public RestaurantTable updateTableStatus(UUID tableId, TableStatusUpdateRequest request) {
         RestaurantTable table = getTableById(tableId);
-        table.setStatus(request.getStatus());
-        table.setCurrentOrderId(request.getCurrentOrderId());
-
-        if (request.getStatus() == TableStatus.OCCUPIED) {
-            table.setSeatedAt(LocalDateTime.now());
-        } else if (request.getStatus() == TableStatus.AVAILABLE || request.getStatus() == TableStatus.CLEANING) {
-            table.setSeatedAt(null);
-        }
+        tableStateTransitionService.applyStatusUpdate(table, request);
 
         RestaurantTable saved = tableRepository.save(table);
         eventPublisher.broadcast("table.status", Map.of("id", saved.getId(), "tableNumber", saved.getTableNumber(), "status", saved.getStatus().name()));
@@ -121,28 +114,14 @@ public class TableService implements TableManagementService {
         tableSeatingPolicy.validateCanSeat(table);
 
         // Đánh dấu bàn là OCCUPIED
-        table.setStatus(TableStatus.OCCUPIED);
-        table.setSeatedAt(LocalDateTime.now());
+        tableStateTransitionService.markOccupied(table);
         tableRepository.save(table);
 
-        updateSeatingSource(request);
+        seatingSourceUpdateService.update(request);
 
         String sourceName = request.getSource() != null ? request.getSource().name() : "UNKNOWN";
         eventPublisher.broadcast("table.seated", Map.of("id", table.getId(), "tableNumber", table.getTableNumber(), "source", sourceName));
         return table;
-    }
-
-    private void updateSeatingSource(SeatGuestRequest request) {
-        if (request.getSource() == null) {
-            return;
-        }
-
-        SeatingSourceHandler handler = seatingSourceHandlers.stream()
-                .filter(candidate -> candidate.supports(request.getSource()))
-                .findFirst()
-                .orElseThrow(() -> new TableBusinessException("Nguồn xếp bàn không được hỗ trợ: " + request.getSource()));
-
-        handler.handle(request.getSourceId());
     }
 
     /**
@@ -158,15 +137,11 @@ public class TableService implements TableManagementService {
         tableSeatingPolicy.validateMoveDestination(toTable);
 
         // Chuyển dữ liệu
-        toTable.setStatus(TableStatus.OCCUPIED);
-        toTable.setCurrentOrderId(fromTable.getCurrentOrderId());
-        toTable.setSeatedAt(fromTable.getSeatedAt());
+        tableStateTransitionService.copyOccupancy(fromTable, toTable);
         tableRepository.save(toTable);
 
         // Giải phóng bàn cũ
-        fromTable.setStatus(TableStatus.AVAILABLE);
-        fromTable.setCurrentOrderId(null);
-        fromTable.setSeatedAt(null);
+        tableStateTransitionService.markAvailable(fromTable);
         tableRepository.save(fromTable);
 
         eventPublisher.broadcast("table.moved", Map.of("from", fromTableId, "to", toTableId));
