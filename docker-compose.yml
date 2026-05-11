@@ -130,6 +130,24 @@ services:
     networks:
       - irms-network
 
+  db-seeder:
+    image: postgres:15
+    environment:
+      - PGPASSWORD=irms_pass
+    volumes:
+      - ./seed_auth.sql:/seeds/seed_auth.sql
+      - ./seed_menu.sql:/seeds/seed_menu.sql
+      - ./seed_table.sql:/seeds/seed_table.sql
+      - ./seed_order.sql:/seeds/seed_order.sql
+      - ./seed_payment.sql:/seeds/seed_payment.sql
+      - ./seed_kitchen.sql:/seeds/seed_kitchen.sql
+      - ./infrastructure/scripts/seed-db.sh:/seed-db.sh
+    entrypoint: ["/bin/bash", "/seed-db.sh"]
+    depends_on:
+      - postgres-db
+    networks:
+      - irms-network
+
   # redis-cache:
   #   image: redis:7
   #   ports:

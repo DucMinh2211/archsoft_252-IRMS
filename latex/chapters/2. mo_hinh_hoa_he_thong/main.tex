@@ -18,11 +18,10 @@
 \textbf{Normal Flow} &
 1. Nhân viên chọn chức năng ``Sơ đồ bàn'' (Floor Plan) trên màn hình chính.\newline
 2. Hệ thống truy xuất dữ liệu trạng thái bàn từ cơ sở dữ liệu.\newline
-3. Hệ thống hiển thị sơ đồ trực quan, sử dụng màu sắc phân biệt (xanh = trống, đỏ = đang có khách, vàng = chờ dọn).\newline
+3. Hệ thống hiển thị sơ đồ trực quan, sử dụng màu sắc phân biệt (xanh lá = trống, xanh dương = đang có khách, vàng = đặt trước, đỏ = chờ dọn).\newline
 4. Nhân viên xem thông tin, có thể chạm vào một bàn để xem chi tiết (thời gian đã ngồi, nhân viên phụ trách). \\ \hline
 \textbf{Alternative Flows} &
-\textbf{1a. Lỗi kết nối mạng:} Hệ thống hiển thị thông báo ``Không thể tải sơ đồ bàn. Vui lòng kiểm tra lại kết nối'' và cung cấp nút ``Thử lại''.\newline
-\textbf{2a. Bàn không tồn tại:} Nếu nhân viên chọn bàn vừa bị xóa, hệ thống thông báo ``Bàn không còn tồn tại'' và tự động làm mới sơ đồ. \\ \hline
+\textbf{1a. Lỗi kết nối mạng:} Hệ thống hiển thị thông báo ``Không thể tải sơ đồ bàn. Vui lòng kiểm tra lại kết nối'' và cung cấp nút ``Thử lại''. \\ \hline
 \end{longtable}
 
 
@@ -156,7 +155,7 @@ $\bullet$ Nhân viên đã mang món ra bàn. \\ \hline
 4. Hệ thống cập nhật trạng thái món thành ``Đã phục vụ'' và lưu vào cơ sở dữ liệu.\newline
 5. Hệ thống ẩn món ăn đó khỏi danh sách ``Cần phục vụ'' trên màn hình. \\ \hline
 \textbf{Alternative Flows} &
-\textbf{3a. Đánh dấu nhầm món:} Nhân viên nhấn nút ``Hoàn tác'' (Undo) ngay cạnh món ăn vừa đánh dấu. Hệ thống đưa món về trạng thái ``Sẵn sàng phục vụ''. \\ \hline
+\textbf{3a. Đánh dấu nhầm món:} Nhân viên nhấn nút ``Hoàn tác'' (Undo) ngay cạnh món ăn vừa đánh dấu trong 30 giây. Hệ thống đưa món về trạng thái ``Sẵn sàng phục vụ''. \\ \hline
 \end{longtable}
 
 \begin{longtable}{|p{3.5cm}|p{12.5cm}|}
@@ -219,7 +218,7 @@ $\bullet$ Có thể bắt đầu nhận order cho bàn đó. \\ \hline
 4. Hệ thống cập nhật trạng thái của bàn từ ``Trống'' sang ``Đang có khách''.\newline
 5. Hệ thống xóa tên nhóm khách khỏi danh sách chờ (nếu họ thuộc Waitlist). \\ \hline
 \textbf{Alternative Flows} &
-\textbf{2a. Không có bàn nào đủ lớn:} Hệ thống đề xuất tính năng ghép bàn (Merge Tables). Tiếp tân chọn 2 bàn gần nhau và gộp lại để xếp chỗ. \\ \hline
+\\ \hline
 \end{longtable}
 
 
@@ -252,19 +251,19 @@ $\bullet$ Trạng thái của khách trên hệ thống chuyển sang ``Đã th�
 \textbf{Use Case ID} & UC12 \\ \hline
 \textbf{Use Case Name} & Cập nhật thời gian chờ dự kiến cho các khách hàng đang trong danh sách chờ \\ \hline
 \textbf{Primary Actors} & Tiếp tân (Host), Hệ thống (Tự động) \\ \hline
-\textbf{Description} & Cung cấp thông tin ước lượng thời gian chờ (ETA) liên tục và chính xác nhất cho khách hàng. \\ \hline
-\textbf{Trigger} & Hệ thống tự động kích hoạt khi có bàn thay đổi trạng thái hoặc mỗi 5 phút một lần. \\ \hline
+\textbf{Description} & Cung cấp thông tin ước lượng thời gian chờ (ETA) liên tục và chính xác nhất cho khách hàng dựa trên số lượng bàn bận và tiến độ ăn của khách hiện tại. \\ \hline
+\textbf{Trigger} & Hệ thống tự động kích hoạt mỗi khi có bàn thay đổi trạng thái hoặc định kỳ mỗi 5 phút. \\ \hline
 \textbf{Preconditions} &
 $\bullet$ Có khách hàng đang nằm trong danh sách chờ.\newline
-$\bullet$ Hệ thống liên tục ghi nhận dữ liệu về các bàn đang ăn. \\ \hline
-\textbf{Postconditions} & $\bullet$ Thời gian chờ dự kiến của mỗi khách được cập nhật và hiển thị trên màn hình Waitlist. \\ \hline
+$\bullet$ Hệ thống ghi nhận thời điểm khách bắt đầu ngồi vào bàn (seated\_at). \\ \hline
+\textbf{Postconditions} & $\bullet$ Thời gian chờ dự kiến của mỗi khách được cập nhật và hiển thị theo thời gian thực trên màn hình Host. \\ \hline
 \textbf{Normal Flow} &
-1. Hệ thống tự động quét trạng thái tất cả các bàn hiện tại mỗi 5 phút hoặc khi có bàn thay đổi trạng thái.\newline
-2. Hệ thống tính toán lại thời gian chờ trung bình dựa trên thuật toán dự đoán.\newline
-3. Hệ thống làm mới (refresh) cột ``Thời gian chờ dự kiến'' trên màn hình Danh sách chờ.\newline
-4. Tiếp tân xem thông tin mới nhất và thông báo miệng lại cho khách nếu họ hỏi thăm tiến độ. \\ \hline
+1. Hệ thống định kỳ quét trạng thái tất cả các bàn đang bận.\newline
+2. Hệ thống tính toán lại ETA dựa trên số bàn đang có khách và vị trí của khách trong hàng chờ.\newline
+3. Hệ thống tự động làm mới cột ``Thời gian chờ dự kiến'' và cập nhật màu sắc (Xanh $\le$ 5p, Vàng $\le$ 15p).\newline
+4. Tiếp tân theo dõi thông tin để thông báo cho khách hàng. \\ \hline
 \textbf{Alternative Flows} &
-\textbf{2a. Bàn hiện tại kéo dài quá giờ:} Hệ thống phát hiện bàn quá giờ dự kiến, tự động cộng dồn thời gian trễ vào Waitlist và bôi vàng thời gian mới để Tiếp tân chú ý xin lỗi khách. \\ \hline
+\textbf{2a. Bàn hiện tại kéo dài quá giờ:} Hệ thống phát hiện bàn ngồi quá thời gian quy định (vd: $>$ 60 phút), tự động cộng dồn thời gian trễ vào danh sách chờ và hiển thị cảnh báo nổi bật để Tiếp tân chú ý xin lỗi khách. \\ \hline
 \end{longtable}
 
 \begin{longtable}{|p{3.5cm}|p{12.5cm}|}
@@ -272,17 +271,17 @@ $\bullet$ Hệ thống liên tục ghi nhận dữ liệu về các bàn đang �
 \textbf{Use Case ID} & UC13 \\ \hline
 \textbf{Use Case Name} & Xem danh sách các món cần chế biến trên hệ thống Hiển thị Bếp (KDS) \\ \hline
 \textbf{Primary Actors} & Đầu bếp (Kitchen Staff) \\ \hline
-\textbf{Description} & Hiển thị các ``phiếu gọi món'' (tickets) một cách trực quan, có sắp xếp theo ưu tiên để đầu bếp phân bổ công việc chế biến. \\ \hline
-\textbf{Trigger} & Nhân viên phục vụ đã chốt đơn và nhấn ``Gửi Bếp'', hệ thống KDS nhận dữ liệu mới. \\ \hline
-\textbf{Preconditions} & $\bullet$ Nhân viên phục vụ đã chốt đơn và nhấn ``Gửi Bếp''. \\ \hline
-\textbf{Postconditions} & $\bullet$ Đầu bếp đọc hiểu được món ăn cần làm, số lượng và thuộc trạm (station) nào. \\ \hline
+\textbf{Description} & Hiển thị các phiếu gọi món (tickets) trực quan, phân loại theo trạm bếp và sắp xếp theo độ ưu tiên (VIP, thời gian chờ) kèm theo trạng thái đã phục vụ. \\ \hline
+\textbf{Trigger} & Nhân viên phục vụ chốt đơn và nhấn ``Gửi Bếp'' hoặc có cập nhật trạng thái từ phía phục vụ. \\ \hline
+\textbf{Preconditions} & $\bullet$ Hệ thống KDS đang hoạt động và kết nối thời gian thực với máy chủ. \\ \hline
+\textbf{Postconditions} & $\bullet$ Đầu bếp nắm bắt được danh sách món cần làm và theo dõi được các món đã ra bàn thành công. \\ \hline
 \textbf{Normal Flow} &
-1. Hệ thống KDS nhận dữ liệu đơn hàng mới từ máy chủ.\newline
-2. Hệ thống tách đơn hàng thành các món nhỏ và phân bổ về màn hình KDS của từng trạm tương ứng.\newline
-3. Hệ thống tạo phiếu ảo trên màn hình, sắp xếp từ trái sang phải theo thứ tự thời gian đặt hàng (cũ nhất ở trước).\newline
-4. Đầu bếp nhìn lên màn hình, đọc Tên món, Số lượng và Bàn yêu cầu để chuẩn bị nguyên liệu. \\ \hline
+1. Hệ thống KDS nhận dữ liệu đơn hàng mới từ máy chủ qua SSE.\newline
+2. Hệ thống tự động tách và phân bổ món về các màn hình trạm (Nướng, Chiên, Bar...). \newline
+3. Hệ thống hiển thị các phiếu món ăn, ưu tiên món khách VIP lên đầu hàng chờ.\newline
+4. Hệ thống hiển thị cả các món đã phục vụ (Served) với màu sắc riêng biệt để đầu bếp kiểm soát tiến độ tổng thể. \\ \hline
 \textbf{Alternative Flows} &
-\textbf{3a. Đơn hàng ưu tiên (VIP/Khách phàn nàn do đợi lâu):} Quản lý gắn cờ ưu tiên cho đơn hàng trên POS. Hệ thống KDS tự động đẩy phiếu lên đầu hàng đợi và nhấp nháy viền màu đỏ. \\ \hline
+\textbf{3a. Đơn hàng bị trễ SLA:} Hệ thống KDS tự động nhấp nháy viền đỏ và đổi màu nền để đầu bếp ưu tiên xử lý món đó ngay. \\ \hline
 \end{longtable}
 
 \begin{longtable}{|p{3.5cm}|p{12.5cm}|}
@@ -300,7 +299,7 @@ $\bullet$ Hệ thống liên tục ghi nhận dữ liệu về các bàn đang �
 3. Hệ thống có thể phát thêm âm thanh cảnh báo ngắn (bíp) nếu đó là ghi chú dị ứng nghiêm trọng.\newline
 4. Đầu bếp quan sát màn hình, đọc kỹ yêu cầu trước khi chế biến món ăn để tránh sai sót. \\ \hline
 \textbf{Alternative Flows} &
-\textbf{2a. Ghi chú quá dài bị che khuất trên KDS:} Hệ thống hiển thị ``Chạm để xem thêm'' (nếu là màn hình cảm ứng) hoặc tự động cuộn chữ (marquee) để đầu bếp đọc được toàn bộ nội dung. \\ \hline
+\\ \hline
 \end{longtable}
 
 \begin{longtable}{|p{3.5cm}|p{12.5cm}|}
@@ -321,7 +320,7 @@ $\bullet$ Thời gian nấu bắt đầu được tính toán. \\ \hline
 4. Hệ thống bắt đầu bấm giờ đếm ngược dựa trên thời gian tiêu chuẩn của món ăn đó.\newline
 5. Hệ thống gửi tín hiệu cập nhật về máy chủ để nhân viên phục vụ bên ngoài POS có thể xem được. \\ \hline
 \textbf{Alternative Flows} &
-\textbf{2a. Đầu bếp chạm nhầm nút:} Đầu bếp có thể chạm và giữ (long press) vào phiếu vừa chuyển trạng thái để ``Hoàn tác'' (Undo). Hệ thống trả phiếu về ``Chờ chế biến'' và hủy bộ đếm thời gian. \\ \hline
+\\ \hline
 \end{longtable}
 
 \begin{longtable}{|p{3.5cm}|p{12.5cm}|}

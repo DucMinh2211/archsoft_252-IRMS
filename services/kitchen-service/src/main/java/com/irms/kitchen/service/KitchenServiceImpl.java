@@ -98,6 +98,9 @@ public class KitchenServiceImpl implements KitchenService {
         for (KitchenTicketItem it : items) {
             if (it.getStatus() == newStatus) continue;
             if (it.getStatus() == TicketItemStatus.CANCELLED) continue;
+            // Không cho phép quay ngược từ SERVED (trừ CANCELLED)
+            if (it.getStatus() == TicketItemStatus.SERVED && newStatus != TicketItemStatus.CANCELLED) continue;
+
             it.setStatus(newStatus);
             itemRepository.save(it);
             checkAndUpdateTicketStatus(it.getTicket());
@@ -114,6 +117,11 @@ public class KitchenServiceImpl implements KitchenService {
         log.info("Updating status for item ID: {} to {} (propagate={})", itemId, newStatus, propagateToOrder);
         KitchenTicketItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kitchen ticket item not found with id: " + itemId));
+
+        // Không cho phép Hoàn tác (COOKING) nếu món đã được phục vụ (SERVED)
+        if (item.getStatus() == TicketItemStatus.SERVED && newStatus != TicketItemStatus.CANCELLED) {
+            throw new IllegalStateException("Không thể hoàn tác món đã được phục vụ xong.");
+        }
 
         item.setStatus(newStatus);
         itemRepository.save(item);
@@ -139,6 +147,7 @@ public class KitchenServiceImpl implements KitchenService {
             case PENDING   -> "PENDING";
             case COOKING   -> "COOKING";
             case READY     -> "READY_TO_SERVE";
+            case SERVED    -> "SERVED";
             case CANCELLED -> "CANCELLED";
         };
     }
@@ -166,10 +175,14 @@ public class KitchenServiceImpl implements KitchenService {
     private void checkAndUpdateTicketStatus(KitchenTicket ticket) {
         List<KitchenTicketItem> items = ticket.getItems();
         
-        boolean allReady = items.stream().allMatch(i -> i.getStatus() == TicketItemStatus.READY || i.getStatus() == TicketItemStatus.CANCELLED);
+        boolean allServed = items.stream().allMatch(i -> i.getStatus() == TicketItemStatus.SERVED || i.getStatus() == TicketItemStatus.CANCELLED);
+        boolean allReadyOrServed = items.stream().allMatch(i -> i.getStatus() == TicketItemStatus.READY || i.getStatus() == TicketItemStatus.SERVED || i.getStatus() == TicketItemStatus.CANCELLED);
         boolean anyCooking = items.stream().anyMatch(i -> i.getStatus() == TicketItemStatus.COOKING);
         
-        if (allReady) {
+        if (allServed) {
+            ticket.setStatus(TicketStatus.SERVED);
+            log.info("Ticket {} is now SERVED", ticket.getId());
+        } else if (allReadyOrServed) {
             ticket.setStatus(TicketStatus.READY_TO_SERVE);
             log.info("Ticket {} is now READY_TO_SERVE", ticket.getId());
         } else if (anyCooking && ticket.getStatus() == TicketStatus.PENDING) {

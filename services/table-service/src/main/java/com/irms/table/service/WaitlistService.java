@@ -9,21 +9,28 @@ import com.irms.table.infrastructure.sse.SseBroadcaster;
 import com.irms.table.repository.RestaurantTableRepository;
 import com.irms.table.repository.WaitlistRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
 public class WaitlistService {
 
-    private static final int ESTIMATED_MINUTES_PER_TABLE = 20;
+    private static final int AVG_DINE_TIME_MINUTES = 60;
+    private static final int OVERDUE_THRESHOLD_MINUTES = 60;
+    private static final int OVERDUE_PENALTY_PER_TABLE = 10;
+    private static final int MIN_WAIT_MINUTES = 5;
 
     private final WaitlistRepository waitlistRepository;
     private final RestaurantTableRepository tableRepository;
@@ -33,24 +40,15 @@ public class WaitlistService {
     // Truy vấn
     // ────────────────────────────────────────────────────────────
 
-    /**
-     * Lấy danh sách chờ hiện tại (WAITING + NOTIFIED) — UC09, UC12.
-     */
     public List<WaitlistEntry> getActiveWaitlist() {
         return waitlistRepository.findByStatusInOrderByCreatedAtAsc(
                 Arrays.asList(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED));
     }
 
-    /**
-     * Lấy toàn bộ danh sách chờ.
-     */
     public List<WaitlistEntry> getAllWaitlistEntries() {
         return waitlistRepository.findAll();
     }
 
-    /**
-     * Lấy một entry theo ID.
-     */
     public WaitlistEntry getEntryById(UUID id) {
         return waitlistRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách trong danh sách chờ với id: " + id));
@@ -60,16 +58,15 @@ public class WaitlistService {
     // Thêm vào danh sách chờ
     // ────────────────────────────────────────────────────────────
 
-    /**
-     * Thêm khách vào danh sách chờ và tính thời gian chờ dự kiến (UC09).
-     */
     @Transactional
     public WaitlistEntry addToWaitlist(WaitlistRequest request) {
-        long currentWaiting = waitlistRepository.countByStatus(WaitlistStatus.WAITING);
-        long occupiedTables = tableRepository.findByStatus(TableStatus.OCCUPIED).size();
+        List<WaitlistEntry> currentWaiting = waitlistRepository.findByStatusOrderByCreatedAtAsc(WaitlistStatus.WAITING);
+        int position = currentWaiting.size(); // Vị trí mới (0-indexed)
 
-        // Ước tính đơn giản: mỗi bàn chiếm trung bình ESTIMATED_MINUTES_PER_TABLE phút
-        int estimatedWait = calculateEstimatedWait((int) currentWaiting, (int) occupiedTables);
+        List<RestaurantTable> occupiedTables = tableRepository.findByStatus(TableStatus.OCCUPIED);
+        
+        long overdueCount = countOverdueTables(occupiedTables);
+        int estimatedWait = calculateLinearWait(position, occupiedTables.size(), (int) overdueCount);
 
         WaitlistEntry entry = WaitlistEntry.builder()
                 .customerName(request.getCustomerName())
@@ -77,7 +74,7 @@ public class WaitlistService {
                 .partySize(request.getPartySize())
                 .status(WaitlistStatus.WAITING)
                 .estimatedWaitMinutes(estimatedWait)
-                .queuePosition((int) currentWaiting + 1)
+                .queuePosition(position + 1)
                 .build();
 
         WaitlistEntry savedW = waitlistRepository.save(entry);
@@ -89,18 +86,12 @@ public class WaitlistService {
     // Cập nhật trạng thái
     // ────────────────────────────────────────────────────────────
 
-    /**
-     * Thông báo cho khách bàn đã sẵn sàng (UC11).
-     * Cập nhật status → NOTIFIED và ghi nhận thời điểm thông báo.
-     */
     @Transactional
     public WaitlistEntry notifyGuest(UUID id) {
         WaitlistEntry entry = getEntryById(id);
-
         if (entry.getStatus() != WaitlistStatus.WAITING) {
             throw new RuntimeException("Chỉ có thể thông báo cho khách đang ở trạng thái WAITING");
         }
-
         entry.setStatus(WaitlistStatus.NOTIFIED);
         entry.setNotifiedAt(LocalDateTime.now());
         WaitlistEntry savedW = waitlistRepository.save(entry);
@@ -108,13 +99,9 @@ public class WaitlistService {
         return savedW;
     }
 
-    /**
-     * Xếp bàn cho khách từ danh sách chờ (UC10).
-     */
     @Transactional
     public WaitlistEntry seatFromWaitlist(UUID id, UUID tableId) {
         WaitlistEntry entry = getEntryById(id);
-
         if (entry.getStatus() == WaitlistStatus.SEATED || entry.getStatus() == WaitlistStatus.LEFT) {
             throw new RuntimeException("Khách này đã được xếp bàn hoặc đã rời đi");
         }
@@ -126,31 +113,23 @@ public class WaitlistService {
             throw new RuntimeException("Bàn " + table.getTableNumber() + " không còn trống");
         }
 
-        // Cập nhật bàn
         table.setStatus(TableStatus.OCCUPIED);
         table.setSeatedAt(LocalDateTime.now());
         tableRepository.save(table);
 
-        // Cập nhật entry
         entry.setStatus(WaitlistStatus.SEATED);
         WaitlistEntry saved = waitlistRepository.save(entry);
 
-        // Tính lại thời gian chờ cho các entry còn lại
         recalculateWaitTimes();
-
         return saved;
     }
 
-    /**
-     * Đánh dấu khách đã rời đi khỏi hàng chờ (hủy chờ) (UC09).
-     */
     @Transactional
     public WaitlistEntry removeFromWaitlist(UUID id) {
         WaitlistEntry entry = getEntryById(id);
         entry.setStatus(WaitlistStatus.LEFT);
         WaitlistEntry saved = waitlistRepository.save(entry);
         sseBroadcaster.broadcast("waitlist.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
-
         recalculateWaitTimes();
         return saved;
     }
@@ -159,21 +138,27 @@ public class WaitlistService {
     // Tính toán thời gian chờ (UC12)
     // ────────────────────────────────────────────────────────────
 
-    /**
-     * Tính lại thời gian chờ dự kiến và vị trí hàng đợi cho tất cả khách đang WAITING.
-     * Gọi khi có bàn mới giải phóng hoặc khách rời hàng.
-     */
+    @Scheduled(fixedRate = 60000) // Cập nhật mỗi 1 phút cho chính xác
+    @Transactional
+    public void recalculateScheduled() {
+        recalculateWaitTimes();
+        sseBroadcaster.broadcast("waitlist.recalculated", Map.of("timestamp", LocalDateTime.now()));
+    }
+
     @Transactional
     public void recalculateWaitTimes() {
         List<WaitlistEntry> waitingEntries = waitlistRepository
                 .findByStatusOrderByCreatedAtAsc(WaitlistStatus.WAITING);
 
-        long occupiedTables = tableRepository.findByStatus(TableStatus.OCCUPIED).size();
+        if (waitingEntries.isEmpty()) return;
+
+        List<RestaurantTable> occupiedTables = tableRepository.findByStatus(TableStatus.OCCUPIED);
+        long overdueCount = countOverdueTables(occupiedTables);
 
         for (int i = 0; i < waitingEntries.size(); i++) {
             WaitlistEntry entry = waitingEntries.get(i);
             entry.setQueuePosition(i + 1);
-            entry.setEstimatedWaitMinutes(calculateEstimatedWait(i, (int) occupiedTables));
+            entry.setEstimatedWaitMinutes(calculateLinearWait(i, occupiedTables.size(), (int) overdueCount));
         }
 
         waitlistRepository.saveAll(waitingEntries);
@@ -183,19 +168,33 @@ public class WaitlistService {
     // Helper
     // ────────────────────────────────────────────────────────────
 
+    private long countOverdueTables(List<RestaurantTable> tables) {
+        return tables.stream()
+                .filter(t -> t.getSeatedAt() != null)
+                .filter(t -> {
+                    long minutes = Duration.between(t.getSeatedAt(), LocalDateTime.now()).toMinutes();
+                    return minutes > OVERDUE_THRESHOLD_MINUTES;
+                })
+                .count();
+    }
+
     /**
-     * Ước tính thời gian chờ dựa trên vị trí trong hàng và số bàn đang bận.
-     *
-     * @param positionInQueue Vị trí trong hàng đợi (0-indexed)
-     * @param occupiedTables  Số bàn đang có khách
-     * @return Thời gian chờ ước tính (phút)
+     * Thuật toán tính ETA tuyến tính:
+     * ETA = (Thời gian ăn TB / Số bàn bận) * (Vị trí + 1) + (Số bàn trễ * Phạt)
      */
-    private int calculateEstimatedWait(int positionInQueue, int occupiedTables) {
-        if (occupiedTables == 0) {
-            return 5; // Tối thiểu 5 phút để dọn bàn
-        }
-        // Mỗi nhóm khách cần chờ ít nhất 1 vòng bàn bận
-        int roundsToWait = (positionInQueue / Math.max(occupiedTables, 1)) + 1;
-        return roundsToWait * ESTIMATED_MINUTES_PER_TABLE;
+    private int calculateLinearWait(int position, int occupiedCount, int overdueCount) {
+        if (occupiedCount == 0) return MIN_WAIT_MINUTES;
+
+        // Tốc độ quay vòng: cứ X phút có 1 bàn trống
+        double turnoverRateMinutes = (double) AVG_DINE_TIME_MINUTES / Math.max(occupiedCount, 1);
+        
+        // Thời gian chờ gốc dựa trên vị trí
+        double baseWait = turnoverRateMinutes * (position + 1);
+        
+        // Cộng dồn trễ hệ thống
+        int penalty = overdueCount * OVERDUE_PENALTY_PER_TABLE;
+        
+        int total = (int) Math.round(baseWait + penalty);
+        return Math.max(total, MIN_WAIT_MINUTES);
     }
 }

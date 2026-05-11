@@ -43,8 +43,8 @@ public class KitchenSyncClient {
             case "PENDING"        -> "PENDING";
             case "COOKING"        -> "COOKING";
             case "READY_TO_SERVE" -> "READY";
+            case "SERVED"         -> "SERVED";
             case "CANCELLED"      -> "CANCELLED";
-            // SERVED không map: kitchen ticket items không có "SERVED" — chef không quan tâm sau READY
             default -> null;
         };
     }

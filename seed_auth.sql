@@ -50,11 +50,12 @@ ON CONFLICT DO NOTHING;
 
 -- Users (password = "123456" cho tất cả - cùng hash với admin đã register)
 INSERT INTO users (id, username, email, password, is_active, created_at, updated_at) VALUES
-  ('33333333-0000-0000-0000-000000000002','manager1','manager@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
-  ('33333333-0000-0000-0000-000000000003','waiter1','waiter1@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
-  ('33333333-0000-0000-0000-000000000004','waiter2','waiter2@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
-  ('33333333-0000-0000-0000-000000000005','chef1','chef1@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW()),
-  ('33333333-0000-0000-0000-000000000006','cashier1','cashier@restaurant.com','$2a$10$1l2GU2TboCAXBeQkxk/8zedBXtl4HeaJU7YFC2ObKKuJ1YHVO0dxm', TRUE, NOW(), NOW())
+  ('4a447405-a88a-4491-8a52-db6685ac17fa','admin','admin@restaurant.com','$2a$10$STeZdMF4ox3Yw7t.a.OoGupzKB0FSg2p56FbDZEUS9RUXkApwFLju', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000002','manager1','manager@restaurant.com','$2a$10$STeZdMF4ox3Yw7t.a.OoGupzKB0FSg2p56FbDZEUS9RUXkApwFLju', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000003','waiter1','waiter1@restaurant.com','$2a$10$STeZdMF4ox3Yw7t.a.OoGupzKB0FSg2p56FbDZEUS9RUXkApwFLju', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000004','waiter2','waiter2@restaurant.com','$2a$10$STeZdMF4ox3Yw7t.a.OoGupzKB0FSg2p56FbDZEUS9RUXkApwFLju', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000005','chef1','chef1@restaurant.com','$2a$10$STeZdMF4ox3Yw7t.a.OoGupzKB0FSg2p56FbDZEUS9RUXkApwFLju', TRUE, NOW(), NOW()),
+  ('33333333-0000-0000-0000-000000000006','cashier1','cashier@restaurant.com','$2a$10$STeZdMF4ox3Yw7t.a.OoGupzKB0FSg2p56FbDZEUS9RUXkApwFLju', TRUE, NOW(), NOW())
 ON CONFLICT DO NOTHING;
 
 -- User -> Roles

@@ -65,17 +65,16 @@ public class ReservationService {
 
     /**
      * Tạo đặt bàn mới (UC08).
-     * Kiểm tra xem còn bàn trống phù hợp trong khung giờ đó không.
+     * Kiểm tra xem nhà hàng có bàn nào đủ sức chứa không.
      */
     @Transactional
     public Reservation createReservation(ReservationRequest request) {
-        // Kiểm tra sơ bộ: có bàn đủ sức chứa không
-        List<RestaurantTable> suitableTables = tableRepository
-                .findByStatusAndCapacityGreaterThanEqual(TableStatus.AVAILABLE, request.getPartySize());
+        // Kiểm tra xem nhà hàng có bàn nào chứa được số người này không
+        List<RestaurantTable> allSuitableTables = tableRepository
+                .findByCapacityGreaterThanEqual(request.getPartySize());
 
-        if (suitableTables.isEmpty()) {
-            // Cũng kiểm tra các bàn không bị giữ bởi reservation khác trong khung giờ
-            throw new RuntimeException("Không đủ bàn trống cho " + request.getPartySize() + " người trong khung giờ này");
+        if (allSuitableTables.isEmpty()) {
+            throw new RuntimeException("Nhà hàng không có bàn nào đủ lớn cho " + request.getPartySize() + " người");
         }
 
         Reservation reservation = Reservation.builder()
@@ -99,8 +98,8 @@ public class ReservationService {
     public Reservation confirmReservation(UUID reservationId, UUID tableId) {
         Reservation reservation = getReservationById(reservationId);
 
-        if (reservation.getStatus() != ReservationStatus.PENDING) {
-            throw new RuntimeException("Chỉ có thể xác nhận đặt bàn ở trạng thái PENDING");
+        if (reservation.getStatus() != ReservationStatus.PENDING && reservation.getStatus() != ReservationStatus.CONFIRMED) {
+            throw new RuntimeException("Chỉ có thể gán bàn cho đặt bàn ở trạng thái PENDING hoặc CONFIRMED");
         }
 
         RestaurantTable table = tableRepository.findById(tableId)
