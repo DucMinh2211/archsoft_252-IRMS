@@ -1,6 +1,5 @@
 package com.irms.admin.service;
 
-import com.irms.admin.domain.Role;
 import com.irms.admin.domain.User;
 import com.irms.admin.dto.UserRequestDTO;
 import com.irms.admin.dto.UserResponseDTO;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -24,29 +22,22 @@ public class UserService implements UserManagementService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserRegistrationService userRegistrationService;
     private final RoleResolver roleResolver;
     private final UserMapper userMapper;
 
     @Override
     @Transactional
     public UserResponseDTO createUser(UserRequestDTO request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateUserException("Username already exists");
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateUserException("Email already exists");
-        }
+        User user = userRegistrationService.createUser(
+                request.getUsername(),
+                request.getEmail(),
+                request.getPassword(),
+                request.isActive(),
+                request.getRoleNames()
+        );
 
-        Set<Role> roles = roleResolver.resolve(request.getRoleNames());
-
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setActive(request.isActive());
-        user.setRoles(roles);
-
-        return userMapper.toDto(userRepository.save(user));
+        return userMapper.toDto(user);
     }
 
     @Override

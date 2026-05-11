@@ -2,6 +2,7 @@ package com.irms.admin.service;
 
 import com.irms.admin.domain.User;
 import com.irms.admin.dto.RegisterRequest;
+import com.irms.admin.exception.DuplicateUserException;
 import com.irms.admin.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,7 +11,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.UUID;
 
@@ -26,7 +26,7 @@ class AuthServiceImplTest {
     private UserRepository userRepository;
     
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private UserRegistrationService userRegistrationService;
     
     @Mock
     private JwtService jwtService;
@@ -48,15 +48,14 @@ class AuthServiceImplTest {
     void register_ShouldSaveUserWithEncodedPasswordAndReturnToken() {
         // Arrange
         RegisterRequest request = new RegisterRequest("newuser", "newuser@test.com", "plainPassword");
-        
-        when(userRepository.existsByUsername(request.getUsername())).thenReturn(false);
-        when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
-        
-        doAnswer(invocation -> {
-            User u = invocation.getArgument(0);
-            u.setId(UUID.randomUUID());
-            return u;
-        }).when(userRepository).save(any(User.class));
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("newuser");
+        user.setEmail("newuser@test.com");
+        user.setPassword("encodedPassword");
+
+        when(userRegistrationService.createUser("newuser", "newuser@test.com", "plainPassword", true, null))
+                .thenReturn(user);
         
         when(jwtService.generateToken(any())).thenReturn("mockJwtToken");
 
@@ -67,11 +66,8 @@ class AuthServiceImplTest {
         assertNotNull(response);
         assertEquals("mockJwtToken", response.getToken());
         
-        verify(passwordEncoder).encode("plainPassword");
-        verify(userRepository).save(argThat(user -> 
-            user.getUsername().equals("newuser") && 
-            user.getPassword().equals("encodedPassword")
-        ));
+        verify(userRegistrationService).createUser("newuser", "newuser@test.com", "plainPassword", true, null);
+        verify(userRepository, never()).save(any());
         verify(auditLogger).logAction(eq("REGISTER_SUCCESS"), eq("User"), any(), eq("newuser"), eq("New user registered"));
     }
 
@@ -79,10 +75,12 @@ class AuthServiceImplTest {
     void register_ShouldThrowExceptionWhenUsernameExists() {
         // Arrange
         RegisterRequest request = new RegisterRequest("existinguser", "test@test.com", "pw");
-        when(userRepository.existsByUsername(request.getUsername())).thenReturn(true);
+        when(userRegistrationService.createUser("existinguser", "test@test.com", "pw", true, null))
+                .thenThrow(new DuplicateUserException("Username already exists"));
 
         // Act & Assert
         assertThrows(IllegalArgumentException.class, () -> authService.register(request));
         verify(userRepository, never()).save(any());
+        verifyNoInteractions(auditLogger);
     }
 }

@@ -4,13 +4,11 @@ import com.irms.admin.domain.User;
 import com.irms.admin.dto.AuthRequest;
 import com.irms.admin.dto.AuthResponse;
 import com.irms.admin.dto.RegisterRequest;
-import com.irms.admin.exception.DuplicateUserException;
 import com.irms.admin.repository.UserRepository;
 import com.irms.admin.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,24 +16,20 @@ import org.springframework.stereotype.Service;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserRegistrationService userRegistrationService;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final AuditLogger auditLogger;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateUserException("Username is already taken");
-        }
-        
-        var user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setActive(true);
-        
-        userRepository.save(user);
+        User user = userRegistrationService.createUser(
+                request.getUsername(),
+                request.getEmail(),
+                request.getPassword(),
+                true,
+                null
+        );
 
         auditLogger.logAction("REGISTER_SUCCESS", "User", user.getId() != null ? user.getId().toString() : null, user.getUsername(), "New user registered");
 
