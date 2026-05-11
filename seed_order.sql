@@ -2,7 +2,6 @@
 \c irms_order
 
 -- Orders
--- 001 DRAFT (chưa gửi bếp)
 -- 002 PENDING (vừa gửi)
 -- 003 COOKING (đang nấu)
 -- 004 READY_TO_SERVE (xong, chờ phục vụ mang ra)
@@ -11,7 +10,6 @@
 -- 007 COMPLETED (takeaway)
 -- 008 CANCELLED
 INSERT INTO orders (id, table_id, waiter_id, type, status, total_amount, special_note, created_at, updated_at) VALUES
-  ('ffffffff-0000-0000-0000-000000000001','cccccccc-0000-0000-0000-000000000005','33333333-0000-0000-0000-000000000003','DINE_IN','DRAFT',         150000, NULL,                                            NOW() - INTERVAL '5 minutes',  NOW() - INTERVAL '5 minutes'),
   ('ffffffff-0000-0000-0000-000000000002','cccccccc-0000-0000-0000-000000000003','33333333-0000-0000-0000-000000000003','DINE_IN','PENDING',       450000, 'Khách hàng vội',                               NOW() - INTERVAL '20 minutes', NOW() - INTERVAL '15 minutes'),
   ('ffffffff-0000-0000-0000-000000000003','cccccccc-0000-0000-0000-000000000004','33333333-0000-0000-0000-000000000003','DINE_IN','COOKING',       700000, NULL,                                            NOW() - INTERVAL '40 minutes', NOW() - INTERVAL '20 minutes'),
   ('ffffffff-0000-0000-0000-000000000004','cccccccc-0000-0000-0000-000000000006','33333333-0000-0000-0000-000000000004','DINE_IN','READY_TO_SERVE', 985000, 'Bàn 6 người, kỷ niệm',                         NOW() - INTERVAL '55 minutes', NOW() - INTERVAL '5 minutes'),
@@ -22,15 +20,6 @@ INSERT INTO orders (id, table_id, waiter_id, type, status, total_amount, special
 ON CONFLICT DO NOTHING;
 
 -- Order items
--- 001 DRAFT - Bàn T05 - Tổng 150,000
-INSERT INTO order_items (id, order_id, menu_item_id, menu_item_name, quantity, price, status, note, created_at, updated_at) VALUES
-  (gen_random_uuid(),'ffffffff-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000022','Coca Cola',           2, 25000,'PENDING', NULL, NOW(), NOW()),
-  (gen_random_uuid(),'ffffffff-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000004','Khoai tây chiên',     1, 45000,'PENDING', NULL, NOW(), NOW()),
-  (gen_random_uuid(),'ffffffff-0000-0000-0000-000000000001','ffff0000-0000-0000-0000-000000000000','PLACEHOLDER',         0,     0,'CANCELLED', NULL, NOW(), NOW());
-
--- Đính chính: Xoá placeholder, recalc:
-DELETE FROM order_items WHERE menu_item_name='PLACEHOLDER';
-
 -- 002 PENDING - Bàn T03 - Tổng 450,000
 INSERT INTO order_items (id, order_id, menu_item_id, menu_item_name, quantity, price, status, note, created_at, updated_at) VALUES
   (gen_random_uuid(),'ffffffff-0000-0000-0000-000000000002','bbbbbbbb-0000-0000-0000-000000000010','Gà nướng mật ong',    1,175000,'PENDING','Không cay', NOW(), NOW()),
