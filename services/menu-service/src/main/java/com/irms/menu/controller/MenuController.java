@@ -29,7 +29,10 @@ public class MenuController {
 
     @PostMapping("/items")
     public ResponseEntity<MenuItemResponse> createItem(@RequestBody MenuItemRequest request) {
-        return new ResponseEntity<>(menuResponseMapper.toMenuItemResponse(menuItemCommandService.createMenuItem(request)), HttpStatus.CREATED);
+        return new ResponseEntity<>(
+                menuResponseMapper.toMenuItemResponse(menuItemCommandService.createMenuItem(menuResponseMapper.toMenuItemInput(request))),
+                HttpStatus.CREATED
+        );
     }
 
     @GetMapping("/items/{id}")
@@ -39,7 +42,9 @@ public class MenuController {
 
     @PutMapping("/items/{id}")
     public ResponseEntity<MenuItemResponse> updateItem(@PathVariable UUID id, @RequestBody MenuItemRequest request) {
-        return ResponseEntity.ok(menuResponseMapper.toMenuItemResponse(menuItemCommandService.updateMenuItem(id, request)));
+        return ResponseEntity.ok(
+                menuResponseMapper.toMenuItemResponse(menuItemCommandService.updateMenuItem(id, menuResponseMapper.toMenuItemInput(request)))
+        );
     }
 
     @DeleteMapping("/items/{id}")

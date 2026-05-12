@@ -2,7 +2,6 @@ package com.irms.menu.service;
 
 import com.irms.menu.domain.Category;
 import com.irms.menu.domain.MenuItem;
-import com.irms.menu.dto.MenuItemRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -10,16 +9,16 @@ import java.util.ArrayList;
 @Component
 public class MenuItemFactory {
 
-    public MenuItem create(MenuItemRequest request, Category category) {
+    public MenuItem create(MenuItemInput input, Category category) {
         return MenuItem.builder()
-                .name(request.getName())
-                .description(request.getDescription())
-                .price(request.getPrice())
+                .name(input.name())
+                .description(input.description())
+                .price(input.price())
                 .category(category)
-                .preparationTime(request.getPreparationTime())
-                .imageUrl(request.getImageUrl())
-                .allergens(request.getAllergens() != null ? request.getAllergens() : new ArrayList<>())
-                .isAvailable(request.getIsAvailable() != null ? request.getIsAvailable() : true)
+                .preparationTime(input.preparationTime())
+                .imageUrl(input.imageUrl())
+                .allergens(input.allergens() != null ? input.allergens() : new ArrayList<>())
+                .isAvailable(input.isAvailable() != null ? input.isAvailable() : true)
                 .build();
     }
 }

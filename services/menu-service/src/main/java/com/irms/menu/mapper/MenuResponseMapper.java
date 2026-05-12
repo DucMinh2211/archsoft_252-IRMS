@@ -5,7 +5,9 @@ import com.irms.menu.domain.MenuItem;
 import com.irms.menu.dto.CategoryRequest;
 import com.irms.menu.dto.CategoryResponse;
 import com.irms.menu.dto.CategorySummaryResponse;
+import com.irms.menu.dto.MenuItemRequest;
 import com.irms.menu.dto.MenuItemResponse;
+import com.irms.menu.service.MenuItemInput;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -53,6 +55,19 @@ public class MenuResponseMapper {
 
     public List<CategoryResponse> toCategoryResponses(List<Category> categories) {
         return categories.stream().map(this::toCategoryResponse).toList();
+    }
+
+    public MenuItemInput toMenuItemInput(MenuItemRequest request) {
+        return new MenuItemInput(
+                request.getName(),
+                request.getDescription(),
+                request.getPrice(),
+                request.getCategoryId(),
+                request.getPreparationTime(),
+                request.getImageUrl(),
+                request.getAllergens(),
+                request.getIsAvailable()
+        );
     }
 
     public Category toCategory(CategoryRequest request) {

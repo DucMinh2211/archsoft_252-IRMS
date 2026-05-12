@@ -1,12 +1,11 @@
 package com.irms.menu.service;
 
 import com.irms.menu.domain.MenuItem;
-import com.irms.menu.dto.MenuItemRequest;
 
 import java.util.UUID;
 
 public interface MenuItemCommandService {
-    MenuItem createMenuItem(MenuItemRequest request);
-    MenuItem updateMenuItem(UUID id, MenuItemRequest request);
+    MenuItem createMenuItem(MenuItemInput input);
+    MenuItem updateMenuItem(UUID id, MenuItemInput input);
     void deleteMenuItem(UUID id);
 }

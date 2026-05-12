@@ -1,7 +1,6 @@
 package com.irms.menu.service;
 
 import com.irms.menu.domain.Category;
-import com.irms.menu.dto.MenuItemRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -17,13 +16,18 @@ class MenuItemFactoryTest {
     @Test
     void create_ShouldPreserveExistingDefaults() {
         Category category = new Category();
-        MenuItemRequest request = new MenuItemRequest();
-        request.setName("Burger");
-        request.setDescription("House burger");
-        request.setPrice(new BigDecimal("12.50"));
-        request.setPreparationTime(15);
+        MenuItemInput input = new MenuItemInput(
+                "Burger",
+                "House burger",
+                new BigDecimal("12.50"),
+                null,
+                15,
+                null,
+                null,
+                null
+        );
 
-        var item = factory.create(request, category);
+        var item = factory.create(input, category);
 
         assertEquals("Burger", item.getName());
         assertEquals("House burger", item.getDescription());

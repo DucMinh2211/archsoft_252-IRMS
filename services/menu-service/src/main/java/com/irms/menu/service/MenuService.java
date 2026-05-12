@@ -2,9 +2,7 @@ package com.irms.menu.service;
 
 import com.irms.menu.domain.Category;
 import com.irms.menu.domain.MenuItem;
-import com.irms.menu.dto.MenuItemRequest;
 import com.irms.menu.exception.ResourceNotFoundException;
-import com.irms.menu.repository.CategoryRepository;
 import com.irms.menu.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +17,7 @@ import java.util.UUID;
 public class MenuService implements MenuItemQueryService, MenuItemCommandService {
 
     private final MenuItemRepository menuItemRepository;
-    private final CategoryRepository categoryRepository;
+    private final CategoryQueryService categoryQueryService;
     private final MenuItemFactory menuItemFactory;
     private final MenuItemUpdater menuItemUpdater;
 
@@ -28,17 +26,12 @@ public class MenuService implements MenuItemQueryService, MenuItemCommandService
         return menuItemRepository.findAll();
     }
 
-    public List<Category> getAllCategories() {
-        return categoryRepository.findAll();
-    }
-
     @Override
     @Transactional
-    public MenuItem createMenuItem(MenuItemRequest request) {
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
+    public MenuItem createMenuItem(MenuItemInput input) {
+        Category category = categoryQueryService.getCategoryById(input.categoryId());
 
-        MenuItem menuItem = menuItemFactory.create(request, category);
+        MenuItem menuItem = menuItemFactory.create(input, category);
         return menuItemRepository.save(menuItem);
     }
 
@@ -55,16 +48,15 @@ public class MenuService implements MenuItemQueryService, MenuItemCommandService
 
     @Override
     @Transactional
-    public MenuItem updateMenuItem(UUID id, MenuItemRequest request) {
+    public MenuItem updateMenuItem(UUID id, MenuItemInput input) {
         MenuItem menuItem = getMenuItemById(id);
         Category category = null;
         
-        if (request.getCategoryId() != null && !request.getCategoryId().equals(menuItem.getCategory().getId())) {
-            category = categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
+        if (input.categoryId() != null && !input.categoryId().equals(menuItem.getCategory().getId())) {
+            category = categoryQueryService.getCategoryById(input.categoryId());
         }
 
-        menuItemUpdater.update(menuItem, request, category);
+        menuItemUpdater.update(menuItem, input, category);
         
         return menuItemRepository.save(menuItem);
     }

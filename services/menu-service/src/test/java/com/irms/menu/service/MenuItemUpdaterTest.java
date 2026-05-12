@@ -2,7 +2,6 @@ package com.irms.menu.service;
 
 import com.irms.menu.domain.Category;
 import com.irms.menu.domain.MenuItem;
-import com.irms.menu.dto.MenuItemRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -29,11 +28,18 @@ class MenuItemUpdaterTest {
                 .isAvailable(true)
                 .build();
 
-        MenuItemRequest request = new MenuItemRequest();
-        request.setName("New");
-        request.setAllergens(List.of("milk"));
+        MenuItemInput input = new MenuItemInput(
+                "New",
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("milk"),
+                null
+        );
 
-        updater.update(item, request, newCategory);
+        updater.update(item, input, newCategory);
 
         assertEquals("New", item.getName());
         assertEquals("Old desc", item.getDescription());

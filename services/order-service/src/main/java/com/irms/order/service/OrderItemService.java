@@ -1,15 +1,14 @@
 package com.irms.order.service;
 
 import com.irms.order.domain.OrderItemStatus;
-import com.irms.order.dto.OrderItemRequestDTO;
-import com.irms.order.dto.OrderItemResponseDTO;
+import com.irms.order.domain.Order;
+import com.irms.order.domain.OrderItem;
 
 import java.util.UUID;
 
 public interface OrderItemService {
-    OrderItemResponseDTO updateOrderItem(UUID itemId, OrderItemRequestDTO itemDTO);
-    OrderItemResponseDTO updateOrderItemStatus(UUID itemId, OrderItemStatus newStatus);
-    /** Internal sync từ kitchen-service. Trả về số dòng đã update. */
-    int syncStatusByMenuItem(UUID orderId, UUID menuItemId, OrderItemStatus newStatus);
+    Order addOrderItem(UUID orderId, OrderItemInput input);
+    OrderItem updateOrderItem(UUID itemId, OrderItemInput input);
+    OrderItem updateOrderItemStatus(UUID itemId, OrderItemStatus newStatus);
     void deleteOrderItem(UUID itemId);
 }
