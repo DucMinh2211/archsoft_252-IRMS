@@ -6,8 +6,12 @@ import com.irms.order.dto.OrderItemRequestDTO;
 import com.irms.order.dto.OrderItemResponseDTO;
 import com.irms.order.dto.OrderRequestDTO;
 import com.irms.order.dto.OrderResponseDTO;
+import com.irms.order.mapper.OrderMapper;
+import com.irms.order.service.KitchenOrderQueryService;
+import com.irms.order.service.OrderCommandService;
 import com.irms.order.service.OrderItemService;
-import com.irms.order.service.OrderService;
+import com.irms.order.service.OrderQueryService;
+import com.irms.order.service.OrderSearchCriteria;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,17 +29,29 @@ import java.util.UUID;
 @RequestMapping("/api/v1/orders")
 public class OrderController {
 
-    private final OrderService orderService;
+    private final OrderQueryService orderQueryService;
+    private final KitchenOrderQueryService kitchenOrderQueryService;
+    private final OrderCommandService orderCommandService;
     private final OrderItemService orderItemService;
+    private final OrderMapper orderMapper;
 
-    public OrderController(OrderService orderService, OrderItemService orderItemService) {
-        this.orderService = orderService;
+    public OrderController(OrderQueryService orderQueryService,
+                           KitchenOrderQueryService kitchenOrderQueryService,
+                           OrderCommandService orderCommandService,
+                           OrderItemService orderItemService,
+                           OrderMapper orderMapper) {
+        this.orderQueryService = orderQueryService;
+        this.kitchenOrderQueryService = kitchenOrderQueryService;
+        this.orderCommandService = orderCommandService;
         this.orderItemService = orderItemService;
+        this.orderMapper = orderMapper;
     }
 
     @PostMapping
     public ResponseEntity<OrderResponseDTO> createOrder(@Valid @RequestBody OrderRequestDTO requestDTO) {
-        OrderResponseDTO createdOrder = orderService.createOrder(requestDTO);
+        OrderResponseDTO createdOrder = orderMapper.toDto(
+                orderCommandService.createOrder(orderMapper.toOrderCreateInput(requestDTO))
+        );
         return new ResponseEntity<>(createdOrder, HttpStatus.CREATED);
     }
 
@@ -46,19 +62,21 @@ public class OrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<OrderResponseDTO> orders = orderService.getOrders(status, waiterId, startDate, endDate, pageable);
+        Page<OrderResponseDTO> orders = orderQueryService
+                .getOrders(new OrderSearchCriteria(status, waiterId, startDate, endDate), pageable)
+                .map(orderMapper::toDto);
         return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponseDTO> getOrder(@PathVariable UUID id) {
-        OrderResponseDTO order = orderService.getOrder(id);
+        OrderResponseDTO order = orderMapper.toDto(orderQueryService.getOrder(id));
         return ResponseEntity.ok(order);
     }
 
     @GetMapping("/kitchen")
     public ResponseEntity<List<OrderResponseDTO>> getKitchenOrders() {
-        List<OrderResponseDTO> kitchenOrders = orderService.getKitchenOrders();
+        List<OrderResponseDTO> kitchenOrders = orderMapper.toDtos(kitchenOrderQueryService.getKitchenOrders());
         return ResponseEntity.ok(kitchenOrders);
     }
 
@@ -66,13 +84,13 @@ public class OrderController {
     public ResponseEntity<OrderResponseDTO> updateOrderStatus(
             @PathVariable UUID id,
             @RequestParam OrderStatus status) {
-        OrderResponseDTO updatedOrder = orderService.updateOrderStatus(id, status);
+        OrderResponseDTO updatedOrder = orderMapper.toDto(orderCommandService.updateOrderStatus(id, status));
         return ResponseEntity.ok(updatedOrder);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrder(@PathVariable UUID id) {
-        orderService.deleteOrder(id);
+        orderCommandService.deleteOrder(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -82,7 +100,9 @@ public class OrderController {
     public ResponseEntity<OrderResponseDTO> addOrderItem(
             @PathVariable UUID id,
             @Valid @RequestBody OrderItemRequestDTO itemDTO) {
-        OrderResponseDTO updatedOrder = orderService.addOrderItem(id, itemDTO);
+        OrderResponseDTO updatedOrder = orderMapper.toDto(
+                orderItemService.addOrderItem(id, orderMapper.toOrderItemInput(itemDTO))
+        );
         return ResponseEntity.ok(updatedOrder);
     }
 
@@ -91,7 +111,9 @@ public class OrderController {
             @PathVariable UUID id,
             @PathVariable UUID itemId,
             @Valid @RequestBody OrderItemRequestDTO itemDTO) {
-        OrderItemResponseDTO updatedItem = orderItemService.updateOrderItem(itemId, itemDTO);
+        OrderItemResponseDTO updatedItem = orderMapper.toDto(
+                orderItemService.updateOrderItem(itemId, orderMapper.toOrderItemInput(itemDTO))
+        );
         return ResponseEntity.ok(updatedItem);
     }
 
@@ -100,7 +122,7 @@ public class OrderController {
             @PathVariable UUID id,
             @PathVariable UUID itemId,
             @RequestParam OrderItemStatus status) {
-        OrderItemResponseDTO updatedItem = orderItemService.updateOrderItemStatus(itemId, status);
+        OrderItemResponseDTO updatedItem = orderMapper.toDto(orderItemService.updateOrderItemStatus(itemId, status));
         return ResponseEntity.ok(updatedItem);
     }
 

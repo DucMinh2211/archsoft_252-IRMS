@@ -1,7 +1,7 @@
 package com.irms.order.controller;
 
 import com.irms.order.domain.OrderItemStatus;
-import com.irms.order.service.OrderItemService;
+import com.irms.order.service.OrderItemSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,14 +18,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InternalSyncController {
 
-    private final OrderItemService orderItemService;
+    private final OrderItemSyncService orderItemSyncService;
 
     @PutMapping("/{orderId}/items/by-menu/{menuItemId}/status")
     public ResponseEntity<Map<String, Integer>> syncStatusByMenuItem(
             @PathVariable UUID orderId,
             @PathVariable UUID menuItemId,
             @RequestParam OrderItemStatus status) {
-        int updated = orderItemService.syncStatusByMenuItem(orderId, menuItemId, status);
+        int updated = orderItemSyncService.syncStatusByMenuItem(orderId, menuItemId, status);
         return ResponseEntity.ok(Map.of("updated", updated));
     }
 }

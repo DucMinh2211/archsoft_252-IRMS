@@ -5,7 +5,8 @@ import com.irms.table.domain.ReservationStatus;
 import com.irms.table.domain.RestaurantTable;
 import com.irms.table.domain.TableStatus;
 import com.irms.table.dto.ReservationRequest;
-import com.irms.table.infrastructure.sse.SseBroadcaster;
+import com.irms.table.exception.TableBusinessException;
+import com.irms.table.exception.TableResourceNotFoundException;
 import com.irms.table.repository.ReservationRepository;
 import com.irms.table.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,11 +21,13 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
-public class ReservationService {
+public class ReservationService implements ReservationManagementService {
 
     private final ReservationRepository reservationRepository;
     private final RestaurantTableRepository tableRepository;
-    private final SseBroadcaster sseBroadcaster;
+    private final TableSeatingPolicy tableSeatingPolicy;
+    private final ReservationPolicy reservationPolicy;
+    private final TableEventPublisher eventPublisher;
 
     // ────────────────────────────────────────────────────────────
     // Truy vấn
@@ -33,6 +36,7 @@ public class ReservationService {
     /**
      * Lấy tất cả đặt bàn.
      */
+    @Override
     public List<Reservation> getAllReservations() {
         return reservationRepository.findAll();
     }
@@ -40,6 +44,7 @@ public class ReservationService {
     /**
      * Lọc đặt bàn theo trạng thái.
      */
+    @Override
     public List<Reservation> getReservationsByStatus(ReservationStatus status) {
         return reservationRepository.findByStatusOrderByReservationTimeAsc(status);
     }
@@ -47,6 +52,7 @@ public class ReservationService {
     /**
      * Lấy đặt bàn trong một khoảng thời gian.
      */
+    @Override
     public List<Reservation> getReservationsBetween(LocalDateTime from, LocalDateTime to) {
         return reservationRepository.findByReservationTimeBetween(from, to);
     }
@@ -54,9 +60,10 @@ public class ReservationService {
     /**
      * Lấy thông tin một đặt bàn theo ID.
      */
+    @Override
     public Reservation getReservationById(UUID id) {
         return reservationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đặt bàn với id: " + id));
+                .orElseThrow(() -> new TableResourceNotFoundException("Không tìm thấy đặt bàn với id: " + id));
     }
 
     // ────────────────────────────────────────────────────────────
@@ -67,6 +74,7 @@ public class ReservationService {
      * Tạo đặt bàn mới (UC08).
      * Kiểm tra xem nhà hàng có bàn nào đủ sức chứa không.
      */
+    @Override
     @Transactional
     public Reservation createReservation(ReservationRequest request) {
         // Kiểm tra xem nhà hàng có bàn nào chứa được số người này không
@@ -74,7 +82,7 @@ public class ReservationService {
                 .findByCapacityGreaterThanEqual(request.getPartySize());
 
         if (allSuitableTables.isEmpty()) {
-            throw new RuntimeException("Nhà hàng không có bàn nào đủ lớn cho " + request.getPartySize() + " người");
+            throw new TableBusinessException("Nhà hàng không có bàn nào đủ lớn cho " + request.getPartySize() + " người");
         }
 
         Reservation reservation = Reservation.builder()
@@ -87,39 +95,24 @@ public class ReservationService {
                 .build();
 
         Reservation saved = reservationRepository.save(reservation);
-        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        eventPublisher.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
         return saved;
     }
 
     /**
      * Xác nhận đặt bàn và gán bàn cụ thể (UC08 - bước confirm).
      */
+    @Override
     @Transactional
     public Reservation confirmReservation(UUID reservationId, UUID tableId) {
         Reservation reservation = getReservationById(reservationId);
-
-        if (reservation.getStatus() != ReservationStatus.PENDING && reservation.getStatus() != ReservationStatus.CONFIRMED) {
-            throw new RuntimeException("Chỉ có thể gán bàn cho đặt bàn ở trạng thái PENDING hoặc CONFIRMED");
-        }
+        reservationPolicy.validateCanAssign(reservation);
 
         RestaurantTable table = tableRepository.findById(tableId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy bàn với id: " + tableId));
+                .orElseThrow(() -> new TableResourceNotFoundException("Không tìm thấy bàn với id: " + tableId));
 
-        if (table.getStatus() != TableStatus.AVAILABLE) {
-            throw new RuntimeException("Bàn " + table.getTableNumber() + " không còn trống");
-        }
-
-        // Kiểm tra xem có reservation nào bị trùng giờ trên bàn này không
-        LocalDateTime startTime = reservation.getReservationTime();
-        LocalDateTime endTime = startTime.plusMinutes(reservation.getExpectedDurationMinutes());
-        
-        List<Reservation> overlapping = reservationRepository.findOverlappingReservations(tableId, startTime, endTime);
-        // Exclude the current reservation from the overlap check
-        overlapping.removeIf(r -> r.getId().equals(reservationId));
-        
-        if (!overlapping.isEmpty()) {
-            throw new RuntimeException("Bàn " + table.getTableNumber() + " đã có người đặt trong khung giờ này");
-        }
+        tableSeatingPolicy.validateAvailable(table);
+        reservationPolicy.validateNoOverlap(reservation, table, reservationId);
 
         // Gán bàn và đổi trạng thái
         reservation.setTable(table);
@@ -130,20 +123,18 @@ public class ReservationService {
         tableRepository.save(table);
 
         Reservation saved = reservationRepository.save(reservation);
-        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        eventPublisher.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
         return saved;
     }
 
     /**
      * Hủy đặt bàn (UC08).
      */
+    @Override
     @Transactional
     public Reservation cancelReservation(UUID id) {
         Reservation reservation = getReservationById(id);
-
-        if (reservation.getStatus() == ReservationStatus.SEATED) {
-            throw new RuntimeException("Không thể hủy đặt bàn khi khách đã vào chỗ");
-        }
+        reservationPolicy.validateCanCancel(reservation);
 
         // Giải phóng bàn nếu đã được gán
         if (reservation.getTable() != null) {
@@ -154,20 +145,18 @@ public class ReservationService {
 
         reservation.setStatus(ReservationStatus.CANCELLED);
         Reservation saved = reservationRepository.save(reservation);
-        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        eventPublisher.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
         return saved;
     }
 
     /**
      * Đánh dấu khách không xuất hiện (No-Show) sau khi hết thời gian chờ.
      */
+    @Override
     @Transactional
     public Reservation markNoShow(UUID id) {
         Reservation reservation = getReservationById(id);
-
-        if (reservation.getStatus() != ReservationStatus.CONFIRMED) {
-            throw new RuntimeException("Chỉ có thể đánh dấu No-Show với đặt bàn đã được xác nhận");
-        }
+        reservationPolicy.validateCanMarkNoShow(reservation);
 
         // Giải phóng bàn
         if (reservation.getTable() != null) {
@@ -178,7 +167,7 @@ public class ReservationService {
 
         reservation.setStatus(ReservationStatus.NO_SHOW);
         Reservation saved = reservationRepository.save(reservation);
-        sseBroadcaster.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
+        eventPublisher.broadcast("reservation.changed", Map.of("id", saved.getId(), "status", saved.getStatus().name()));
         return saved;
     }
 }

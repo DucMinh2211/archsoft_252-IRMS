@@ -3,21 +3,17 @@ package com.irms.order.service;
 import com.irms.order.domain.Order;
 import com.irms.order.domain.OrderItem;
 import com.irms.order.domain.OrderItemStatus;
-import com.irms.order.dto.OrderItemRequestDTO;
-import com.irms.order.dto.OrderItemResponseDTO;
+import com.irms.order.domain.OrderStatus;
 import com.irms.order.exception.BusinessValidationException;
-import com.irms.order.exception.InvalidStateTransitionException;
 import com.irms.order.exception.OrderNotFoundException;
-import com.irms.order.infrastructure.client.KitchenSyncClient;
-import com.irms.order.infrastructure.sse.SseBroadcaster;
-import com.irms.order.mapper.OrderMapper;
+import com.irms.order.infrastructure.client.KitchenItemStatusSyncClient;
 import com.irms.order.repository.OrderItemRepository;
 import com.irms.order.repository.OrderRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -26,25 +22,56 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     private final OrderItemRepository orderItemRepository;
     private final OrderRepository orderRepository;
-    private final OrderMapper orderMapper;
-    private final KitchenSyncClient kitchenSyncClient;
-    private final SseBroadcaster sseBroadcaster;
+    private final KitchenItemStatusSyncClient kitchenSyncClient;
+    private final OrderTotalCalculator orderTotalCalculator;
+    private final OrderItemStatusTransitionPolicy itemStatusTransitionPolicy;
+    private final OrderItemFactory orderItemFactory;
+    private final OrderChangeNotifier notifier;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public OrderItemServiceImpl(OrderItemRepository orderItemRepository,
                                 OrderRepository orderRepository,
-                                OrderMapper orderMapper,
-                                KitchenSyncClient kitchenSyncClient,
-                                SseBroadcaster sseBroadcaster) {
+                                KitchenItemStatusSyncClient kitchenSyncClient,
+                                OrderTotalCalculator orderTotalCalculator,
+                                OrderItemStatusTransitionPolicy itemStatusTransitionPolicy,
+                                OrderItemFactory orderItemFactory,
+                                OrderChangeNotifier notifier) {
         this.orderItemRepository = orderItemRepository;
         this.orderRepository = orderRepository;
-        this.orderMapper = orderMapper;
         this.kitchenSyncClient = kitchenSyncClient;
-        this.sseBroadcaster = sseBroadcaster;
+        this.orderTotalCalculator = orderTotalCalculator;
+        this.itemStatusTransitionPolicy = itemStatusTransitionPolicy;
+        this.orderItemFactory = orderItemFactory;
+        this.notifier = notifier;
     }
 
     @Override
     @Transactional
-    public OrderItemResponseDTO updateOrderItem(UUID itemId, OrderItemRequestDTO itemDTO) {
+    public Order addOrderItem(UUID orderId, OrderItemInput input) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found with id: " + orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BusinessValidationException("Cannot add items to a completed or cancelled order.");
+        }
+
+        OrderItem orderItem = orderItemFactory.create(input);
+        order.addItem(orderItem);
+        // Persist explicit để tránh TransientObjectException khi merge order managed.
+        entityManager.persist(orderItem);
+
+        orderTotalCalculator.recalculate(order);
+        entityManager.flush();
+
+        notifier.itemAdded(order);
+        return order;
+    }
+
+    @Override
+    @Transactional
+    public OrderItem updateOrderItem(UUID itemId, OrderItemInput input) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new OrderNotFoundException("Order Item not found"));
         
@@ -52,71 +79,27 @@ public class OrderItemServiceImpl implements OrderItemService {
             throw new BusinessValidationException("Cannot update item that is already being cooked or served.");
         }
 
-        item.setQuantity(itemDTO.getQuantity());
-        item.setNote(itemDTO.getNote());
+        item.setQuantity(input.quantity());
+        item.setNote(input.note());
         
         OrderItem savedItem = orderItemRepository.save(item);
         recalculateOrderTotal(item.getOrder());
         
-        return orderMapper.toDto(savedItem);
+        return savedItem;
     }
 
     @Override
     @Transactional
-    public OrderItemResponseDTO updateOrderItemStatus(UUID itemId, OrderItemStatus newStatus) {
+    public OrderItem updateOrderItemStatus(UUID itemId, OrderItemStatus newStatus) {
         return updateOrderItemStatusInternal(itemId, newStatus, true);
     }
 
-    /**
-     * Sync từ kitchen-service: cập nhật status theo (orderId, menuItemId), không propagate ngược lại
-     * để tránh loop. Hỗ trợ trường hợp 1 menu item có nhiều dòng order_item — update tất cả non-terminal.
-     */
-    @Override
-    @Transactional
-    public int syncStatusByMenuItem(UUID orderId, UUID menuItemId, OrderItemStatus newStatus) {
-        List<OrderItem> items = orderItemRepository.findByOrder_IdAndMenuItemId(orderId, menuItemId);
-        int updated = 0;
-        for (OrderItem it : items) {
-            if (it.getStatus() == newStatus) continue;
-            // Bỏ qua nếu đã terminal nhưng status mới khác — không quay ngược
-            if (it.getStatus() == OrderItemStatus.SERVED && newStatus != OrderItemStatus.CANCELLED) continue;
-            if (it.getStatus() == OrderItemStatus.CANCELLED) continue;
-            it.setStatus(newStatus);
-            orderItemRepository.save(it);
-            updated++;
-        }
-        if (updated > 0 && newStatus == OrderItemStatus.CANCELLED && !items.isEmpty()) {
-            recalculateOrderTotal(items.get(0).getOrder());
-        }
-        if (updated > 0) {
-            sseBroadcaster.broadcast("order.itemStatus.sync",
-                    java.util.Map.of("orderId", orderId, "menuItemId", menuItemId, "status", newStatus.name(), "updated", updated));
-        }
-        return updated;
-    }
-
-    private OrderItemResponseDTO updateOrderItemStatusInternal(UUID itemId, OrderItemStatus newStatus, boolean propagateToKitchen) {
+    private OrderItem updateOrderItemStatusInternal(UUID itemId, OrderItemStatus newStatus, boolean propagateToKitchen) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new OrderNotFoundException("Order Item not found"));
 
         OrderItemStatus currentStatus = item.getStatus();
-
-        // Cho phép * → CANCELLED từ bất kỳ trạng thái không terminal (waiter có thể hủy bất cứ lúc nào)
-        if (currentStatus == OrderItemStatus.SERVED || currentStatus == OrderItemStatus.CANCELLED) {
-            throw new InvalidStateTransitionException("Cannot transition item from terminal state " + currentStatus);
-        }
-        if (newStatus != OrderItemStatus.CANCELLED) {
-            // Forward-only: chỉ cho phép tiến tới
-            boolean isValid = switch (currentStatus) {
-                case PENDING -> newStatus == OrderItemStatus.COOKING || newStatus == OrderItemStatus.READY_TO_SERVE || newStatus == OrderItemStatus.SERVED;
-                case COOKING -> newStatus == OrderItemStatus.READY_TO_SERVE || newStatus == OrderItemStatus.SERVED;
-                case READY_TO_SERVE -> newStatus == OrderItemStatus.SERVED;
-                default -> false;
-            };
-            if (!isValid) {
-                throw new InvalidStateTransitionException("Cannot transition item from " + currentStatus + " to " + newStatus);
-            }
-        }
+        itemStatusTransitionPolicy.validateTransition(currentStatus, newStatus);
 
         item.setStatus(newStatus);
         OrderItem savedItem = orderItemRepository.save(item);
@@ -130,9 +113,8 @@ public class OrderItemServiceImpl implements OrderItemService {
             kitchenSyncClient.syncItemStatus(item.getOrder().getId(), item.getMenuItemId(), newStatus.name());
         }
 
-        OrderItemResponseDTO dto = orderMapper.toDto(savedItem);
-        sseBroadcaster.broadcast("order.itemStatus", dto);
-        return dto;
+        notifier.itemStatusChanged(savedItem);
+        return savedItem;
     }
 
     @Override
@@ -153,11 +135,7 @@ public class OrderItemServiceImpl implements OrderItemService {
     }
 
     private void recalculateOrderTotal(Order order) {
-        BigDecimal totalAmount = order.getItems().stream()
-                .filter(i -> i.getStatus() != OrderItemStatus.CANCELLED)
-                .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        order.setTotalAmount(totalAmount);
+        orderTotalCalculator.recalculate(order);
         orderRepository.save(order);
     }
 }

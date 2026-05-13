@@ -14,7 +14,7 @@ import java.util.UUID;
  */
 @Slf4j
 @Component
-public class OrderServiceClient {
+public class OrderServiceClient implements OrderItemStatusSyncClient {
 
     private final RestTemplate restTemplate;
     private final String orderServiceUrl;
@@ -29,6 +29,7 @@ public class OrderServiceClient {
      * Đồng bộ status xuống các order_items trong order có cùng menuItemId.
      * Best-effort: log lỗi nhưng không throw — KDS vẫn coi như cập nhật thành công.
      */
+    @Override
     public void syncItemStatus(UUID orderId, UUID menuItemId, String orderItemStatus) {
         try {
             // Dùng endpoint internal để order-service KHÔNG gọi ngược lại kitchen (chống loop).

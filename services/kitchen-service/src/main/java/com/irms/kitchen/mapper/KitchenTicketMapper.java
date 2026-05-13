@@ -4,7 +4,7 @@ import com.irms.kitchen.domain.KitchenTicket;
 import com.irms.kitchen.domain.KitchenTicketItem;
 import com.irms.kitchen.dto.KitchenTicketDto;
 import com.irms.kitchen.dto.KitchenTicketItemDto;
-import com.irms.kitchen.service.OrderPrioritizer;
+import com.irms.kitchen.service.KitchenTicketTimingPolicy;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
@@ -12,10 +12,10 @@ import java.util.stream.Collectors;
 @Component
 public class KitchenTicketMapper {
 
-    private final OrderPrioritizer orderPrioritizer;
+    private final KitchenTicketTimingPolicy ticketTimingPolicy;
 
-    public KitchenTicketMapper(OrderPrioritizer orderPrioritizer) {
-        this.orderPrioritizer = orderPrioritizer;
+    public KitchenTicketMapper(KitchenTicketTimingPolicy ticketTimingPolicy) {
+        this.ticketTimingPolicy = ticketTimingPolicy;
     }
 
     public KitchenTicketDto toDto(KitchenTicket ticket) {
@@ -30,8 +30,8 @@ public class KitchenTicketMapper {
                 .status(ticket.getStatus())
                 .expectedReadyTime(ticket.getExpectedReadyTime())
                 .createdAt(ticket.getCreatedAt())
-                .isBreached(orderPrioritizer.isTicketBreached(ticket))
-                .isAtRisk(orderPrioritizer.isTicketAtRisk(ticket))
+                .isBreached(ticketTimingPolicy.isTicketBreached(ticket))
+                .isAtRisk(ticketTimingPolicy.isTicketAtRisk(ticket))
                 .items(ticket.getItems() != null ? 
                         ticket.getItems().stream().map(this::toItemDto).collect(Collectors.toList()) : null)
                 .build();

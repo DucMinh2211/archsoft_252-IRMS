@@ -3,31 +3,42 @@ package com.irms.kitchen.service;
 import com.irms.kitchen.domain.StationType;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 
 @Component
-public class StationManager {
+public class StationManager implements StationAssignmentPolicy {
+
+    private static final List<StationRule> STATION_RULES = List.of(
+            new StationRule(StationType.GRILL, List.of("grill", "steak", "burger", "bbq")),
+            new StationRule(StationType.FRYER, List.of("fry", "crispy", "chips")),
+            new StationRule(StationType.DESSERT, List.of("cake", "ice cream", "sweet", "dessert")),
+            new StationRule(StationType.DRINK, List.of("drink", "juice", "coffee", "tea", "cola", "beer"))
+    );
 
     /**
      * Determines the appropriate station for a given menu item.
      * In a real application, this might query the menu-service or a local cache
      * to get category information for the menu item.
      */
+    @Override
     public StationType determineStation(UUID menuItemId, String menuItemName) {
         if (menuItemName == null) return StationType.GENERAL;
         
         String lowerName = menuItemName.toLowerCase();
-        
-        if (lowerName.contains("grill") || lowerName.contains("steak") || lowerName.contains("burger") || lowerName.contains("bbq")) {
-            return StationType.GRILL;
-        } else if (lowerName.contains("fry") || lowerName.contains("crispy") || lowerName.contains("chips")) {
-            return StationType.FRYER;
-        } else if (lowerName.contains("cake") || lowerName.contains("ice cream") || lowerName.contains("sweet") || lowerName.contains("dessert")) {
-            return StationType.DESSERT;
-        } else if (lowerName.contains("drink") || lowerName.contains("juice") || lowerName.contains("coffee") || lowerName.contains("tea") || lowerName.contains("cola") || lowerName.contains("beer")) {
-            return StationType.DRINK;
+
+        for (StationRule rule : STATION_RULES) {
+            if (rule.matches(lowerName)) {
+                return rule.station();
+            }
         }
         
         return StationType.GENERAL;
+    }
+
+    private record StationRule(StationType station, List<String> keywords) {
+        private boolean matches(String menuItemName) {
+            return keywords.stream().anyMatch(menuItemName::contains);
+        }
     }
 }

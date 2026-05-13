@@ -2,7 +2,7 @@ package com.irms.admin.controller;
 
 import com.irms.admin.dto.UserRequestDTO;
 import com.irms.admin.dto.UserResponseDTO;
-import com.irms.admin.service.UserService;
+import com.irms.admin.service.UserManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
+    private final UserManagementService userService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

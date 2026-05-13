@@ -1,5 +1,6 @@
 package com.irms.payment.infrastructure.client;
 
+import com.irms.payment.exception.PaymentNotificationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
@@ -8,7 +9,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.UUID;
 
 @Component
-public class OrderServiceClient {
+public class OrderServiceClient implements OrderCompletionClient {
 
     private final RestTemplate restTemplate;
     private final String orderServiceUrl;
@@ -19,12 +20,13 @@ public class OrderServiceClient {
         this.orderServiceUrl = orderServiceUrl;
     }
 
+    @Override
     public void updateOrderStatusToCompleted(UUID orderId) {
         try {
             String url = orderServiceUrl + "/api/v1/orders/" + orderId + "/status?status=COMPLETED";
             restTemplate.put(url, null);
         } catch (RestClientException e) {
-            throw new RuntimeException("Failed to notify order-service of completion: " + e.getMessage());
+            throw new PaymentNotificationException("Failed to notify order-service of completion: " + e.getMessage());
         }
     }
 }

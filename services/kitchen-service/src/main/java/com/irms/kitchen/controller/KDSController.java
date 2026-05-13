@@ -5,7 +5,7 @@ import com.irms.kitchen.dto.KitchenTicketDto;
 import com.irms.kitchen.dto.KitchenTicketItemDto;
 import com.irms.kitchen.dto.UpdateItemStatusRequest;
 import com.irms.kitchen.mapper.KitchenTicketMapper;
-import com.irms.kitchen.service.KitchenService;
+import com.irms.kitchen.service.KdsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class KDSController {
 
-    private final KitchenService kitchenService;
+    private final KdsService kitchenService;
     private final KitchenTicketMapper kitchenTicketMapper;
 
     @GetMapping("/tickets")

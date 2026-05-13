@@ -11,21 +11,15 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class RoleService {
+public class RoleService implements RoleQueryService {
 
     private final RoleRepository roleRepository;
+    private final UserMapper userMapper;
 
+    @Override
     public List<RoleResponseDTO> getAllRoles() {
         return roleRepository.findAll().stream()
-                .map(this::toDto)
+                .map(userMapper::toDto)
                 .collect(Collectors.toList());
-    }
-
-    private RoleResponseDTO toDto(Role role) {
-        return RoleResponseDTO.builder()
-                .id(role.getId())
-                .name(role.getName())
-                .description(role.getDescription())
-                .build();
     }
 }

@@ -1,60 +1,53 @@
 package com.irms.admin.service;
 
-import com.irms.admin.domain.Role;
 import com.irms.admin.domain.User;
-import com.irms.admin.dto.RoleResponseDTO;
 import com.irms.admin.dto.UserRequestDTO;
 import com.irms.admin.dto.UserResponseDTO;
-import com.irms.admin.repository.RoleRepository;
+import com.irms.admin.exception.DuplicateUserException;
+import com.irms.admin.exception.UserNotFoundException;
 import com.irms.admin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @SuppressWarnings("null")
-public class UserService {
+public class UserService implements UserManagementService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserRegistrationService userRegistrationService;
+    private final RoleResolver roleResolver;
+    private final UserMapper userMapper;
 
+    @Override
     @Transactional
     public UserResponseDTO createUser(UserRequestDTO request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists");
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
-        }
+        User user = userRegistrationService.createUser(
+                request.getUsername(),
+                request.getEmail(),
+                request.getPassword(),
+                request.isActive(),
+                request.getRoleNames()
+        );
 
-        Set<Role> roles = fetchRoles(request.getRoleNames());
-
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setActive(request.isActive());
-        user.setRoles(roles);
-
-        return toDto(userRepository.save(user));
+        return userMapper.toDto(user);
     }
 
+    @Override
     @Transactional
     public UserResponseDTO updateUser(UUID userId, UserRequestDTO request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (!user.getEmail().equals(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new DuplicateUserException("Email already exists");
         }
 
         user.setEmail(request.getEmail());
@@ -65,63 +58,34 @@ public class UserService {
         }
 
         if (request.getRoleNames() != null) {
-            user.setRoles(fetchRoles(request.getRoleNames()));
+            user.setRoles(roleResolver.resolve(request.getRoleNames()));
         }
 
-        return toDto(userRepository.save(user));
+        return userMapper.toDto(userRepository.save(user));
     }
 
+    @Override
     @Transactional
     public void deleteUser(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         
         // Soft delete
         user.setActive(false);
         userRepository.save(user);
     }
 
+    @Override
     public UserResponseDTO getUserById(UUID userId) {
         return userRepository.findById(userId)
-                .map(this::toDto)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .map(userMapper::toDto)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
     }
 
+    @Override
     public List<UserResponseDTO> getAllUsers() {
         return userRepository.findAll().stream()
-                .map(this::toDto)
+                .map(userMapper::toDto)
                 .collect(Collectors.toList());
-    }
-
-    private Set<Role> fetchRoles(Set<String> roleNames) {
-        Set<Role> roles = new HashSet<>();
-        if (roleNames != null) {
-            for (String roleName : roleNames) {
-                Role role = roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
-                roles.add(role);
-            }
-        }
-        return roles;
-    }
-
-    private UserResponseDTO toDto(User user) {
-        Set<RoleResponseDTO> roleDtos = user.getRoles().stream()
-                .map(role -> RoleResponseDTO.builder()
-                        .id(role.getId())
-                        .name(role.getName())
-                        .description(role.getDescription())
-                        .build())
-                .collect(Collectors.toSet());
-
-        return UserResponseDTO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .active(user.isActive())
-                .roles(roleDtos)
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
     }
 }

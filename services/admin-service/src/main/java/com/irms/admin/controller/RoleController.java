@@ -1,7 +1,7 @@
 package com.irms.admin.controller;
 
 import com.irms.admin.dto.RoleResponseDTO;
-import com.irms.admin.service.RoleService;
+import com.irms.admin.service.RoleQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,7 +16,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RoleController {
 
-    private final RoleService roleService;
+    private final RoleQueryService roleService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

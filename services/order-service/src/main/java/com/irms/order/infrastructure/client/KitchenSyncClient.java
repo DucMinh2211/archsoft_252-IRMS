@@ -14,20 +14,24 @@ import java.util.UUID;
  */
 @Slf4j
 @Component
-public class KitchenSyncClient {
+public class KitchenSyncClient implements KitchenItemStatusSyncClient {
 
     private final RestTemplate restTemplate;
+    private final KitchenItemStatusMapper statusMapper;
     private final String kitchenServiceUrl;
 
     public KitchenSyncClient(RestTemplate restTemplate,
+                             KitchenItemStatusMapper statusMapper,
                              @Value("${clients.kitchen-service.base-url}") String kitchenServiceUrl) {
         this.restTemplate = restTemplate;
+        this.statusMapper = statusMapper;
         this.kitchenServiceUrl = kitchenServiceUrl;
     }
 
+    @Override
     public void syncItemStatus(UUID orderId, UUID menuItemId, String orderItemStatus) {
         try {
-            String kitchenStatus = mapToKitchenStatus(orderItemStatus);
+            String kitchenStatus = statusMapper.toKitchenStatus(orderItemStatus);
             if (kitchenStatus == null) return; // Không map được → bỏ qua (vd: SERVED không có ở kitchen)
             String url = kitchenServiceUrl + "/api/v1/internal/kitchen/orders/" + orderId
                     + "/menu/" + menuItemId + "/status?status=" + kitchenStatus;
@@ -38,14 +42,4 @@ public class KitchenSyncClient {
         }
     }
 
-    private String mapToKitchenStatus(String orderItemStatus) {
-        return switch (orderItemStatus) {
-            case "PENDING"        -> "PENDING";
-            case "COOKING"        -> "COOKING";
-            case "READY_TO_SERVE" -> "READY";
-            case "SERVED"         -> "SERVED";
-            case "CANCELLED"      -> "CANCELLED";
-            default -> null;
-        };
-    }
 }
